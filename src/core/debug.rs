@@ -1,4 +1,3 @@
-use crate::IS_VALIDATION_LAYERS_ENABLED;
 use ash::{extensions::ext, vk};
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};
@@ -52,7 +51,7 @@ unsafe extern "system" fn debug_utils_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
     message_type: vk::DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
-    _user_data: *mut std::os::raw::c_void,
+    _user_data: *mut c_void,
 ) -> vk::Bool32 {
     let callback_data = *p_callback_data;
     let message_id_number: i32 = callback_data.message_id_number as i32;
@@ -82,9 +81,6 @@ unsafe extern "system" fn debug_utils_callback(
 }
 pub fn populate_debug_messenger_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
     vk::DebugUtilsMessengerCreateInfoEXT {
-        s_type: vk::StructureType::DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        p_next: ptr::null(),
-        flags: vk::DebugUtilsMessengerCreateFlagsEXT::empty(),
         message_severity: vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
             | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
         message_type: vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
@@ -92,12 +88,11 @@ pub fn populate_debug_messenger_create_info() -> vk::DebugUtilsMessengerCreateIn
             | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
         pfn_user_callback: Some(debug_utils_callback),
         p_user_data: ptr::null_mut(),
+        ..Default::default()
 
     }
 }
 pub fn setup_debug_messenger(
-    entry: &ash::Entry,
-    instance: &ash::Instance,
     debug_utils_loader : &ext::DebugUtils,
 ) -> vk::DebugUtilsMessengerEXT {
         let create_info = populate_debug_messenger_create_info();
@@ -110,36 +105,21 @@ pub fn setup_debug_messenger(
 
 }
 
-pub fn destroy_debug_messenger(
-    entry: &ash::Entry,
-    instance: &ash::Instance,
-    debug_utils_messenger: Option<vk::DebugUtilsMessengerEXT>,
-) {
-    match debug_utils_messenger {
-        Some(debug_utils_messenger) => unsafe {
-            ext::DebugUtils::new(entry, instance)
-                .destroy_debug_utils_messenger(debug_utils_messenger, None);
-        },
-        None => {}
-    }
-}
-
 impl Debug {
     pub fn new(entry: &ash::Entry,instance: &ash::Instance) -> Self {
         let debug_utils_loader = ext::DebugUtils::new(entry, instance);
-        let debug_utils_messenger = setup_debug_messenger(entry, instance,&debug_utils_loader);
+        let debug_utils_messenger = setup_debug_messenger(&debug_utils_loader);
         Debug {
             debug_utils_loader:  ext::DebugUtils::new(entry, instance),
             debug_utils_messenger,
         }
     }
-}
-impl Drop for Debug{
-    fn drop(&mut self) {
+    pub fn drop(&mut self)->Option<()>{
         unsafe {
             self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
         }
+        None
     }
 }
 
