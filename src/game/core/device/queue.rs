@@ -1,13 +1,30 @@
 use ash::vk;
-use ash::{Instance};
+use ash::Instance;
 use super::surface::Surface;
 
 use std::collections::HashSet;
+use std::convert::From;
 
 #[derive(Debug)]
 pub struct QueueFamilyIndices {
     pub graphics_family: Option<u32>,
     pub present_family: Option<u32>,
+}
+pub struct QueueFamilies{
+    pub graphics_queue:vk::Queue,
+    pub present_queue:vk::Queue,
+    pub queue_family_indices:QueueFamilyIndices,
+}
+impl QueueFamilies{
+    pub fn from(indices:QueueFamilyIndices,logical_device:&ash::Device)->Self{
+        let graphics_queue = unsafe{logical_device.get_device_queue(indices.graphics_family.unwrap(),0)};
+        let present_queue = unsafe{logical_device.get_device_queue(indices.present_family.unwrap(),0)};
+        QueueFamilies{
+            graphics_queue,
+            present_queue,
+            queue_family_indices:indices,
+        }
+    }
 }
 impl QueueFamilyIndices {
     pub fn new()->Self{
@@ -61,5 +78,15 @@ impl QueueFamilyIndices {
             set.insert(present_family);
         }
         set
+    }
+    pub fn to_vec(&self)->Vec<u32>{
+        let mut vec = Vec::new();
+        if let Some(graphics_family) = self.graphics_family{
+            vec.push(graphics_family);
+        }
+        if let Some(present_family) = self.present_family{
+            vec.push(present_family);
+        }
+        vec
     }
 }

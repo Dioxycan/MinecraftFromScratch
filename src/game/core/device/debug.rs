@@ -2,7 +2,6 @@ use ash::{extensions::ext, vk};
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
-use std::ops::Drop;
 use std::borrow::Cow;
 
 pub const LAYER_NAME: [&'static str; 1] = ["VK_LAYER_KHRONOS_validation"];
@@ -82,7 +81,8 @@ unsafe extern "system" fn debug_utils_callback(
 pub fn populate_debug_messenger_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT {
     vk::DebugUtilsMessengerCreateInfoEXT {
         message_severity: vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-            | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
+            | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+            | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
         message_type: vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
             | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
             | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
@@ -113,13 +113,6 @@ impl Debug {
             debug_utils_loader:  ext::DebugUtils::new(entry, instance),
             debug_utils_messenger,
         }
-    }
-    pub fn drop(&mut self)->Option<()>{
-        unsafe {
-            self.debug_utils_loader
-                .destroy_debug_utils_messenger(self.debug_utils_messenger, None);
-        }
-        None
     }
 }
 

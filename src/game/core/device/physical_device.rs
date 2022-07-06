@@ -4,9 +4,9 @@ use ash::Instance;
 use ash::vk;
 use super::surface::Surface;
 use super::swap_chain_support::SwapChainSupportDetails;
-use super::device_extensions;
+use super::DEVICE_EXTENSIONS;
 
-pub fn pick_physical_device(instance:&Instance,surface:&Surface)->vk::PhysicalDevice{
+pub fn pick_physical_device(instance:&Instance,surface:&Surface,indices:&mut QueueFamilyIndices)->vk::PhysicalDevice{
     let physical_devices = unsafe{
         instance.enumerate_physical_devices()
             .expect("Failed to enumerate physical devices")
@@ -19,13 +19,13 @@ pub fn pick_physical_device(instance:&Instance,surface:&Surface)->vk::PhysicalDe
             instance.get_physical_device_properties(physical_device)
         };
         println!("{:?}",unsafe{CStr::from_ptr(properties.device_name.as_ptr())});
-        if is_device_is_suitable(instance,&physical_device,surface){
+        if is_device_is_suitable(instance,&physical_device,surface,indices){
             return physical_device;
         }
     }
     panic!("Failed to find a suitable GPU");
 }
-fn is_device_is_suitable(instance:&Instance,physical_device:&vk::PhysicalDevice,surface:&Surface)->bool{
+fn is_device_is_suitable(instance:&Instance,physical_device:&vk::PhysicalDevice,surface:&Surface,_indices:&mut QueueFamilyIndices)->bool{
     let indices = QueueFamilyIndices::find_queue_families(instance,physical_device,surface);
     let extensions_supported = check_device_extension_support(instance,physical_device);
     let swap_chain_adequate = if extensions_supported {
@@ -38,17 +38,22 @@ fn is_device_is_suitable(instance:&Instance,physical_device:&vk::PhysicalDevice,
     let supported_features = unsafe{
         instance.get_physical_device_features(*physical_device)
     };
-    return indices.is_complete() 
+    if indices.is_complete() 
     && supported_features.sampler_anisotropy == vk::TRUE 
     && swap_chain_adequate 
-    && extensions_supported;
+    && extensions_supported
+    {
+        *_indices = indices;
+        return true;
+    }
+    false
 }
 fn check_device_extension_support(instance:&Instance,physical_device:&vk::PhysicalDevice)->bool{
     let available_extensions = unsafe{
         instance.enumerate_device_extension_properties(*physical_device)
             .expect("Failed to enumerate device extensions")
     };
-    device_extensions.iter()
+    DEVICE_EXTENSIONS.iter()
         .all(|extension| {
             available_extensions.iter().any(|&i| {
                 *extension ==  unsafe{ CStr::from_ptr(i.extension_name.as_ptr())}

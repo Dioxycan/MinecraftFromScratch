@@ -1,4 +1,4 @@
-use crate::core::Core;
+use super::core::Core;
 use winit::{self,event_loop::EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 
@@ -30,7 +30,7 @@ impl Game{
                                 winit::event::ElementState::Pressed,
                             ) => {
                                 dbg!();
-
+                                unsafe{self.core.device.logical_device.device_wait_idle();} ;
                                 *control_flow = winit::event_loop::ControlFlow::Exit;
                             }
                             _ => {}

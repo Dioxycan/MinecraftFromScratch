@@ -1,4 +1,4 @@
-use crate::core::debug::{
+use super::debug::{
     check_validation_layer_support, populate_debug_messenger_create_info, LAYER_NAME,
 };
 use crate::IS_VALIDATION_LAYERS_ENABLED;

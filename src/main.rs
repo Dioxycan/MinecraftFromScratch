@@ -1,4 +1,3 @@
-mod core;
 mod game;
 use winit::event_loop::EventLoop;
 use crate::game::Game;
