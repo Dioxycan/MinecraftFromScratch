@@ -1,10 +1,7 @@
 use ash::vk;
 use ash::Instance;
 use super::surface::Surface;
-
 use std::collections::HashSet;
-use std::convert::From;
-
 #[derive(Debug)]
 pub struct QueueFamilyIndices {
     pub graphics_family: Option<u32>,

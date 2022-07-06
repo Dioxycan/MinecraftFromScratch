@@ -1,4 +1,16 @@
-struct Command{
-    command_pool: vk::CommandPool,
-
+use ash::vk;
+use super::command_pool::create_command_pool;
+use crate::game::core::device::Device;
+pub struct Command{
+    pub command_pool: vk::CommandPool,
+    pub command_buffer: vk::CommandBuffer,
+}
+impl Command{
+    pub fn new(device:&Device)->Self{
+        let command_pool = create_command_pool(&device.logical_device, &device.queue_families.queue_family_indices);
+        Command{
+            command_pool,
+            
+        }
+    }
 }
