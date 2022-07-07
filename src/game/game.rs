@@ -13,6 +13,7 @@ pub struct Game{
     pub renderer:Renderer,
     render_system:MainRenderSystem,
 }
+
 impl Game{
     pub fn new(event_loop:&event_loop::EventLoop<()>)->Self{
         let mut window = Window::new(event_loop);
