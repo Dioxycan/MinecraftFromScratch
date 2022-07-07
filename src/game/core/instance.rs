@@ -39,8 +39,7 @@ pub fn create_instance(entry: &ash::Entry, extension_names: &Vec<*const i8>) -> 
     let create_info = vk::InstanceCreateInfo::builder()
         .application_info(&app_info)
         .enabled_extension_names(&extension_names)
-        .enabled_layer_names(&enabled_layer_names)
-        .push_next(&mut debug_create_info);
+        .enabled_layer_names(&enabled_layer_names);
     unsafe {
         entry
             .create_instance(&create_info, None)

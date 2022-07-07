@@ -72,13 +72,18 @@ impl Core{
             }
         panic!("Failed to find supported format");
     }
-        
+    pub fn find_memory_type(&self,type_bits:u32,properties:vk::MemoryPropertyFlags)->Option<u32>{
+        let memory_properties = unsafe{self.instance.get_physical_device_memory_properties(self.physical_device)};
+        memory_properties.memory_types.iter().enumerate().find(|&(index,memory_type)|{
+            type_bits & (1 << index) != 0 && memory_type.property_flags.contains(properties)
+        }).map(|(index,_)|index as u32) 
+    }
 }
     
 impl Drop for Core{
     fn drop(&mut self) {
+        println!("dropping core");
         unsafe {
-
             self.logical_device.destroy_device(None);
             self.surface.surface_loader.destroy_surface(self.surface.surface, None);
             match self.debug{
@@ -87,7 +92,7 @@ impl Drop for Core{
                 },
                 None => {},
             }
-           
+            
             self.instance.destroy_instance(None);
         }
     }

@@ -1,6 +1,6 @@
 use ash::vk;
 use std::cell::RefCell;
-use winit::{window,event_loop};
+use winit::{window,event_loop, platform::run_return::EventLoopExtRunReturn};
 pub struct Window{
     pub window:window::Window,
     pub event_loop:RefCell<event_loop::EventLoop<()>>,
@@ -17,8 +17,8 @@ impl Window{
             event_loop:RefCell::new(event_loop),
         }
     }
-    pub fn run<F>(&self,draw_f:F,close_f:F)where F:'static + FnOnce(){
-        self.event_loop.borrow_mut().run( move |event, _, control_flow| {
+    pub fn run<F,CF>(&self,draw_f:F,close_f:CF)where F:'static + Fn(),CF:'static + Fn(){
+        self.event_loop.borrow_mut().run_return( move |event, _, control_flow| {
             // handle event
             match event {
                 winit::event::Event::WindowEvent { event, .. } => match event {

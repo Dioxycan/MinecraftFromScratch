@@ -1,5 +1,5 @@
 use ash::vk;
-use crate::game::core::device::queue::QueueFamilyIndices;
+use crate::game::core::queue::QueueFamilyIndices;
 
 pub fn create_command_pool(device:&ash::Device,indices:&QueueFamilyIndices)->vk::CommandPool{
     let pool_info = vk::CommandPoolCreateInfo::builder()
