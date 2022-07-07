@@ -1,13 +1,13 @@
 use std::rc::Rc;
 
+use super::MAX_FRAMES_IN_FLIGHT;
 use crate::game::core::Core;
 use ash::extensions::khr;
+use ash::prelude::*;
 use ash::vk;
-const MAX_FRAMES_IN_FLIGHT : usize = 2;
 pub struct SwapChain {
     core: Rc<Core>,
-    window_extent: vk::Extent2D,
-    swap_chain_loader: khr::Swapchain,
+    pub swap_chain_loader: khr::Swapchain,
     swap_chain: vk::SwapchainKHR,
     images: Vec<vk::Image>,
     image_format: vk::Format,
@@ -17,8 +17,8 @@ pub struct SwapChain {
     depth_images: Vec<vk::Image>,
     depth_image_views: Vec<vk::ImageView>,
     depth_image_memories: Vec<vk::DeviceMemory>,
-    swap_chain_extent: vk::Extent2D,
-    frame_buffers: Vec<vk::Framebuffer>,
+    pub swap_chain_extent: vk::Extent2D,
+    pub frame_buffers: Vec<vk::Framebuffer>,
     image_available_semaphores: Vec<vk::Semaphore>,
     render_finished_semaphores: Vec<vk::Semaphore>,
     inflight_fences: Vec<vk::Fence>,
@@ -26,12 +26,11 @@ pub struct SwapChain {
     current_frame: usize,
 }
 impl SwapChain {
-    pub fn new(core: Rc<Core>, window_extent: vk::Extent2D) -> Self {
+    pub fn new(core: Rc<Core>) -> Self {
         let swap_chain_loader = khr::Swapchain::new(&core.instance, &core.logical_device);
         SwapChain {
             core,
             swap_chain_loader,
-            window_extent,
             swap_chain: vk::SwapchainKHR::null(),
             images: Vec::new(),
             image_format: vk::Format::default(),
@@ -48,23 +47,22 @@ impl SwapChain {
             inflight_fences: Vec::new(),
             image_in_flight: Vec::new(),
             current_frame: 0,
-        }.init()
+        }
     }
-    fn init(mut self)->Self{
-        self.create_swap_chain();
+    pub fn init(&mut self, window_extent: &vk::Extent2D) {
+        self.create_swap_chain(window_extent);
         self.create_image_views();
         self.create_render_pass();
         self.create_depth_resources();
         self.create_frame_buffer();
         self.create_sync_objects();
-        self
     }
-    fn create_swap_chain(&mut self) {
+    fn create_swap_chain(&mut self, window_extent: &vk::Extent2D) {
         let swap_chain_support = &self.core.swap_chain_support;
 
         let surface_format = choose_swap_surface_format(&swap_chain_support.formats);
         let present_mode = choose_swap_present_mode(&swap_chain_support.present_modes);
-        let extent = choose_swap_extent(&swap_chain_support.capabilities, &self.window_extent);
+        let extent = choose_swap_extent(&swap_chain_support.capabilities, window_extent);
 
         let mut image_count = swap_chain_support.capabilities.min_image_count + 1;
         if swap_chain_support.capabilities.max_image_count > 0
@@ -294,9 +292,9 @@ impl SwapChain {
             self.depth_image_views.push(depth_image_view);
         }
     }
-    fn create_frame_buffer(&mut self){
+    fn create_frame_buffer(&mut self) {
         for i in 0..self.images.len() {
-            let attachments = [self.image_views[i],self.depth_image_views[i]];
+            let attachments = [self.image_views[i], self.depth_image_views[i]];
             let create_info = vk::FramebufferCreateInfo::builder()
                 .render_pass(self.render_pass)
                 .attachments(&attachments)
@@ -314,12 +312,16 @@ impl SwapChain {
         }
     }
     fn create_sync_objects(&mut self) {
-        self.image_available_semaphores.resize(MAX_FRAMES_IN_FLIGHT, vk::Semaphore::null());
-        self.render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT, vk::Semaphore::null());
-        self.inflight_fences.resize(MAX_FRAMES_IN_FLIGHT, vk::Fence::null());
-        self.image_in_flight.resize(self.images.len(),vk::Fence::null());
+        self.image_available_semaphores
+            .resize(MAX_FRAMES_IN_FLIGHT, vk::Semaphore::null());
+        self.render_finished_semaphores
+            .resize(MAX_FRAMES_IN_FLIGHT, vk::Semaphore::null());
+        self.inflight_fences
+            .resize(MAX_FRAMES_IN_FLIGHT, vk::Fence::null());
+        self.image_in_flight
+            .resize(self.images.len(), vk::Fence::null());
 
-        let semaphore_info =vk::SemaphoreCreateInfo::default();
+        let semaphore_info = vk::SemaphoreCreateInfo::default();
         let fence_info = vk::FenceCreateInfo::builder()
             .flags(vk::FenceCreateFlags::SIGNALED)
             .build();
@@ -347,8 +349,71 @@ impl SwapChain {
             self.inflight_fences.push(fence);
         }
     }
-    pub fn get_render_pass(&self)->&vk::RenderPass{
+    pub fn get_render_pass(&self) -> &vk::RenderPass {
         &self.render_pass
+    }
+    pub fn acquire_next_image(&self) -> VkResult<(u32, bool)> {
+        unsafe {
+            self.core
+                .logical_device
+                .wait_for_fences(&self.inflight_fences, true, std::u64::MAX)
+                .expect("Failed to wait for fence");
+        }
+        unsafe {
+            self.swap_chain_loader.acquire_next_image(
+                self.swap_chain,
+                std::u64::MAX,
+                self.image_available_semaphores[self.current_frame],
+                vk::Fence::null(),
+            )
+        }
+    }
+    pub fn submit_command_buffer(
+        &mut self,
+        command_buffer: &vk::CommandBuffer,
+        image_index: &u32,
+    ) -> VkResult<(bool)> {
+        if (self.image_in_flight[*image_index as usize] != vk::Fence::null()) {
+            unsafe {
+                self.core
+                    .logical_device
+                    .wait_for_fences(
+                        &[self.image_in_flight[*image_index as usize]],
+                        true,
+                        std::u64::MAX,
+                    )
+                    .expect("Failed to wait for fence");
+            }
+        }
+        self.image_in_flight[*image_index as usize] = self.inflight_fences[self.current_frame];
+        let submit_info = vk::SubmitInfo::builder()
+            .wait_semaphores(&[self.image_available_semaphores[self.current_frame]])
+            .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
+            .command_buffers(&[*command_buffer])
+            .signal_semaphores(&[self.render_finished_semaphores[self.current_frame]])
+            .build();
+        unsafe {
+            self.core
+                .logical_device
+                .reset_fences(&[self.inflight_fences[self.current_frame]])
+                .expect("Failed to reset fence");
+            self.core
+                .logical_device
+                .queue_submit(
+                    self.core.queue_families.graphics_queue,
+                    &[submit_info],
+                    self.inflight_fences[self.current_frame],
+                )
+                .expect("Failed to submit command buffer");
+        }
+        let present_info =vk::PresentInfoKHR::builder()
+            .wait_semaphores(&[self.render_finished_semaphores[self.current_frame]])
+            .swapchains(&[self.swap_chain])
+            .image_indices(&[*image_index])
+            .build();
+        unsafe{
+            self.swap_chain_loader.queue_present(self.core.queue_families.present_queue, &present_info)
+        }
     }
 }
 
