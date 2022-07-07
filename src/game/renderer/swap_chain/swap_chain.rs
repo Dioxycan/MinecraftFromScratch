@@ -347,6 +347,9 @@ impl SwapChain {
             self.inflight_fences.push(fence);
         }
     }
+    pub fn get_render_pass(&self)->&vk::RenderPass{
+        &self.render_pass
+    }
 }
 
 fn choose_swap_surface_format(

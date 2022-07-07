@@ -4,6 +4,7 @@ use ash::vk;
 use crate::game::core::Core;
 use std::io::prelude::*;
 use std::ffi::CStr;
+use super::pipeline_config::PipelineConfig;
 pub struct Pipeline{
     core:Rc<Core>,
     graphic_pipeline:vk::Pipeline,
@@ -11,15 +12,15 @@ pub struct Pipeline{
     frag_shader_module:vk::ShaderModule,
 }
 impl Pipeline{
-    pub fn new(core:Rc<Core>,vert_file_path:&'static str,frag_file_path:&'static str,config_info:PipelineConfig)->Self{
+    pub fn new(core:Rc<Core>)->Self{
         Pipeline{
             core,
             graphic_pipeline:vk::Pipeline::null(),
             vert_shader_module:vk::ShaderModule::null(),
             frag_shader_module:vk::ShaderModule::null(),
-        }.create_graphic_pipeline(vert_file_path,frag_file_path,config_info)
+        }
     }
-    fn create_graphic_pipeline(mut self,vert_file_path:&'static str,frag_file_path:&'static str,config_info:PipelineConfig)->Self{
+    pub fn create_graphic_pipeline(&mut self,vert_file_path:&'static str,frag_file_path:&'static str,config_info:PipelineConfig){
         assert!(config_info.pipeline_layout != vk::PipelineLayout::null(),"Cannot create pipeline without pipeline layout");
         assert!(config_info.render_pass != vk::RenderPass::null(),"Cannot create pipeline without render pass");
         let vert_code = read_shader_code(vert_file_path);
@@ -27,16 +28,16 @@ impl Pipeline{
         self.vert_shader_module = self.create_shader_mode(vert_code.as_slice());
         self.frag_shader_module = self.create_shader_mode(frag_code.as_slice());
         let mut shader_stage:Vec<vk::PipelineShaderStageCreateInfo>= vec![];
-        shader_stage[0] = vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::VERTEX)
-            .module(self.vert_shader_module)
-            .name(unsafe{CStr::from_bytes_with_nul_unchecked(b"main\0")})
-            .build();
-        shader_stage[1] = vk::PipelineShaderStageCreateInfo::builder()
-            .stage(vk::ShaderStageFlags::FRAGMENT)
-            .module(self.frag_shader_module)
-            .name(unsafe{CStr::from_bytes_with_nul_unchecked(b"main\0")})
-            .build();
+        shader_stage.push(vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::VERTEX)
+        .module(self.vert_shader_module)
+        .name(unsafe{CStr::from_bytes_with_nul_unchecked(b"main\0")})
+        .build());
+        shader_stage.push(vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::FRAGMENT)
+        .module(self.frag_shader_module)
+        .name(unsafe{CStr::from_bytes_with_nul_unchecked(b"main\0")})
+        .build());
 
         let binding_descriptions = [vk::VertexInputBindingDescription::builder()
             .binding(0)
@@ -79,7 +80,6 @@ impl Pipeline{
             self.core.logical_device.create_graphics_pipelines(vk::PipelineCache::null(), &[pipeline_info], None)
             .expect("Failed to create graphics pipeline")[0]
         };
-        self
     }
     fn create_shader_mode(&mut self,shader_code:&[u8])->vk::ShaderModule{
         let create_info = vk::ShaderModuleCreateInfo{
@@ -98,18 +98,4 @@ fn read_shader_code(file_path:&'static str)->Vec<u8>{
     let mut code = Vec::new();
     file.read_to_end(&mut code).expect("Failed to read shader file");
     code
-}
-pub struct PipelineConfig{
-    pub viewport_state:vk::PipelineViewportStateCreateInfo,
-    pub input_assembly_state:vk::PipelineInputAssemblyStateCreateInfo,
-    pub rasterization_state:vk::PipelineRasterizationStateCreateInfo,
-    pub multisample_state:vk::PipelineMultisampleStateCreateInfo,
-    pub color_blend_state:vk::PipelineColorBlendStateCreateInfo,
-    pub color_blend_attachments:vk::PipelineColorBlendAttachmentState,
-    pub depth_stencil_state:vk::PipelineDepthStencilStateCreateInfo,
-    pub dynamic_state:vk::PipelineDynamicStateCreateInfo,
-    pub dynamic_state_enables:Vec<vk::DynamicState>,
-    pub pipeline_layout : vk::PipelineLayout,
-    pub render_pass : vk::RenderPass,
-    pub subpass : u32,
 }

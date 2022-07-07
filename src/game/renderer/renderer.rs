@@ -13,4 +13,7 @@ impl Renderer{
             swap_chain,
         }
     }
+    pub fn get_render_pass(&self)->&vk::RenderPass{
+        self.swap_chain.get_render_pass()
+    }
 }

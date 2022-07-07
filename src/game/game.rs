@@ -2,21 +2,25 @@ use super::core::Core;
 use super::window::Window;
 use super::renderer::Renderer;
 use std::rc::Rc;
+use super::render_systems::{MainRenderSystem, self};
 pub struct Game{
     core:Rc<Core>,
     window:Window,
     renderer:Renderer,
+    render_system:MainRenderSystem,
 }
 impl Game{
     pub fn new()->Self{
         let window = Window::new();
         let core = Rc::new(Core::new(&window));
         let renderer=Renderer::new(core.clone(),window.get_window_extent());
-
+        let mut render_system = MainRenderSystem::new(core.clone());
+        render_system.init(renderer.get_render_pass());
         Game{
             core,
             window,
             renderer,
+            render_system
         }
     }
     pub fn draw(&mut self){}
