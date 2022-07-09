@@ -1,23 +1,23 @@
 use std::{rc::Rc, borrow::BorrowMut, cell::{RefCell,RefMut}};
 
-use super::command::Command;
+use super::{command::Command, swap_chain};
 use super::swap_chain::SwapChain;
 use crate::game::{core::Core, window::Window};
 use ash::vk;
 pub struct Renderer{
-    swap_chain: SwapChain,
+    pub swap_chain: SwapChain,
     is_frame_started: bool,
     core: Rc<Core>,
-    command: Command,
-    current_frame_index: u32,
-    current_image_index: u32,
+    pub command: Command,
+    pub current_frame_index: u32,
+    pub current_image_index: u32,
     pub is_window_resized: bool,
     pub window_extent: vk::Extent2D,
 }
 impl Renderer {
     pub fn new(core: Rc<Core>, window_extent: vk::Extent2D) -> Self {
         let mut swap_chain = SwapChain::new(core.clone());
-        swap_chain.init(&window_extent);
+        swap_chain.init(&window_extent,None);
         let command = Command::new(&core);
         Renderer {
             core,
@@ -32,7 +32,13 @@ impl Renderer {
         }
     }
     pub fn recreate_swap_chain(&mut self) {
-        self.swap_chain.init(&self.window_extent);
+        unsafe{
+            self.core.logical_device.device_wait_idle().unwrap();
+        }
+        let mut swap_chain = SwapChain::new(self.core.clone());
+        println!("{:?}",self.window_extent);
+        swap_chain.init(&self.window_extent,Some(self.swap_chain.swap_chain));
+        self.swap_chain = swap_chain;
     }
     pub fn get_render_pass(&self) -> &vk::RenderPass {
         self.swap_chain.get_render_pass()
@@ -44,7 +50,8 @@ impl Renderer {
         assert!(self.is_frame_started == false, "Frame already started");
         let command_buffer = self.get_current_command_buffer();
         match self.swap_chain.acquire_next_image() {
-            Ok(image_index) => {
+            Ok((image_index,is_ok)) => {
+                self.current_image_index = image_index;
                 self.is_frame_started = true;
                 let begin_info = vk::CommandBufferBeginInfo::default();
                 unsafe {
@@ -91,6 +98,8 @@ impl Renderer {
             println!("Failed to submit command buffer: {:?}", result);
             self.is_window_resized = false;
             self.recreate_swap_chain();
+            self.is_frame_started = false;
+            return;
         }
         self.is_frame_started = false;
         self.current_frame_index = (self.current_frame_index +1) % super::swap_chain::MAX_FRAMES_IN_FLIGHT as u32;
@@ -100,11 +109,12 @@ impl Renderer {
             self.is_frame_started,
             "Can't call begin_render_pass if frame is not in progress"
         );
+
         assert!(
-            command_buffer != self.get_current_command_buffer(),
+            command_buffer == self.get_current_command_buffer(),
             "Can't begin render pass on command buffer from a different frame"
         );
-
+        println!("{:?}",self.swap_chain.swap_chain_extent);
         let render_pass_info = vk::RenderPassBeginInfo::builder()
             .render_pass(*self.get_render_pass())
             .framebuffer(self.swap_chain.frame_buffers[self.current_image_index as usize])
@@ -159,7 +169,7 @@ impl Renderer {
             "Can't call end_render_pass if frame is not in progress"
         );
         assert!(
-            command_buffer != self.get_current_command_buffer(),
+            command_buffer == self.get_current_command_buffer(),
             "Can't begin render pass on command buffer from a different frame"
         );
         unsafe {

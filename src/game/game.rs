@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use super::render_systems::MainRenderSystem;
 use ash::vk;
 use winit::{event_loop, platform::run_return::EventLoopExtRunReturn};
+pub const MAX_FRAMES_IN_FLIGHT : usize = 2;
 pub struct Game{
     core:Rc<Core>,
     pub window:Window,
@@ -32,11 +33,52 @@ impl Game{
         let command_buffer = self.renderer.begin_frame();
         if command_buffer != vk::CommandBuffer::null() {
             self.renderer.begin_render_pass(command_buffer);
-
+            self.render_system.bind(command_buffer);
+            unsafe{self.core.logical_device.cmd_draw(command_buffer, 9, 1, 0, 0);}
             self.renderer.end_render_pass(command_buffer);
             self.renderer.end_frame();
         }
-       
+    }
+    pub fn run(&mut self,event_loop:&mut event_loop::EventLoop<()>){
+        event_loop.run_return( move |event, _, control_flow| {
+            // handle event
+            match event {
+                winit::event::Event::WindowEvent { event, .. } => match event {
+                    winit::event::WindowEvent::CloseRequested => {
+                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                    },
+                    winit::event::WindowEvent::Resized(physical_size) => {
+                       self.renderer.is_window_resized = true;
+                        self.renderer.window_extent = self.window.get_window_extent();
+                        *control_flow = winit::event_loop::ControlFlow::Wait;
+                    },
+                    winit::event::WindowEvent::KeyboardInput { input, .. } => match input {
+                        winit::event::KeyboardInput {
+                            virtual_keycode,
+                            state,
+                            ..
+                        } => match (virtual_keycode, state) {
+                            (
+                                Some(winit::event::VirtualKeyCode::Escape),
+                                winit::event::ElementState::Pressed,
+                            ) => {
+                                dbg!();
+                                *control_flow = winit::event_loop::ControlFlow::Exit;
+                            }
+                            _ => {}
+                        },
+                    },
+                    _ => {}
+                },
+                winit::event::Event::MainEventsCleared => {
+                    self.window.window.request_redraw();
+                }
+                winit::event::Event::RedrawRequested(_window_id) => {
+                    self.draw();
+                }
+                _ => (),
+            }
+        });
     }
 }
 impl Drop for Game{
