@@ -114,7 +114,6 @@ impl Renderer {
             command_buffer == self.get_current_command_buffer(),
             "Can't begin render pass on command buffer from a different frame"
         );
-        println!("{:?}",self.swap_chain.swap_chain_extent);
         let render_pass_info = vk::RenderPassBeginInfo::builder()
             .render_pass(*self.get_render_pass())
             .framebuffer(self.swap_chain.frame_buffers[self.current_image_index as usize])

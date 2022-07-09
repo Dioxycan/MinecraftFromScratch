@@ -53,9 +53,14 @@ impl PipelineConfig {
             alpha_blend_op: vk::BlendOp::ADD,
             color_write_mask: vk::ColorComponentFlags::R|vk::ColorComponentFlags::G|vk::ColorComponentFlags::B|vk::ColorComponentFlags::A,
         };
-        self.color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
-            .attachments(&[self.color_blend_attachment])
-            .build();
+        self.color_blend_state = vk::PipelineColorBlendStateCreateInfo{
+            logic_op_enable: vk::FALSE,
+            logic_op: vk::LogicOp::COPY,
+            attachment_count: 1,
+            p_attachments: &self.color_blend_attachment,
+            blend_constants: [0.0, 0.0, 0.0, 0.0],
+            ..Default::default()
+        };
         self.depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
             .depth_test_enable(false)
             .depth_write_enable(false)

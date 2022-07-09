@@ -34,7 +34,7 @@ impl Game{
         if command_buffer != vk::CommandBuffer::null() {
             self.renderer.begin_render_pass(command_buffer);
             self.render_system.bind(command_buffer);
-            unsafe{self.core.logical_device.cmd_draw(command_buffer, 9, 1, 0, 0);}
+            unsafe{self.core.logical_device.cmd_draw(command_buffer, 3, 1, 0, 0);}
             self.renderer.end_render_pass(command_buffer);
             self.renderer.end_frame();
         }

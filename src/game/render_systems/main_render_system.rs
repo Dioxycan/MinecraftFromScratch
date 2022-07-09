@@ -10,11 +10,11 @@ pub struct PushConstant {
     pub transform: nalgebra::Matrix4<f32>,
 }
 pub struct Vertex {
-    pub position: nalgebra::Vector3<f32>,
+    pub position: nalgebra::Vector2<f32>,
     pub color: nalgebra::Vector3<f32>,
 }
 impl Vertex {
-    pub fn new(position: nalgebra::Vector3<f32>, color: nalgebra::Vector3<f32>) -> Self {
+    pub fn new(position: nalgebra::Vector2<f32>, color: nalgebra::Vector3<f32>) -> Self {
         Vertex { position, color }
     }
     pub fn get_binding_description() -> vk::VertexInputBindingDescription {
@@ -25,11 +25,13 @@ impl Vertex {
             .build()
     }
     pub fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+        println!("{}", offset_of!(Vertex, position));
+        println!("{}", offset_of!(Vertex, color));
         vec![
             vk::VertexInputAttributeDescription::builder()
                 .binding(0)
                 .location(0)
-                .format(vk::Format::R32G32B32_SFLOAT)
+                .format(vk::Format::R32G32_SFLOAT)
                 .offset(offset_of!(Vertex, position) as u32)
                 .build(),
             vk::VertexInputAttributeDescription::builder()
@@ -63,6 +65,7 @@ impl MainRenderSystem {
     pub fn init(&mut self, render_pass: &vk::RenderPass) {
         self.create_pipeline_layout();
         self.create_pipeline(render_pass);
+        self.create_vertex_buffer();
     }
 
     fn create_pipeline_layout(&mut self) {
@@ -103,25 +106,16 @@ impl MainRenderSystem {
     }
     fn create_vertex_buffer(&mut self) {
         let vertices = vec![
-            Vertex::new(
-                nalgebra::Vector3::new(-0.5, -0.5, 0.0),
-                nalgebra::Vector3::new(1.0, 0.0, 0.0),
-            ),
-            Vertex::new(
-                nalgebra::Vector3::new(0.5, -0.5, 0.0),
-                nalgebra::Vector3::new(0.0, 1.0, 0.0),
-            ),
-            Vertex::new(
-                nalgebra::Vector3::new(0.0, 0.5, 0.0),
-                nalgebra::Vector3::new(0.0, 0.0, 1.0),
-            ),
+            Vertex::new(nalgebra::Vector2::new(0.0, -0.5), nalgebra::Vector3::new(1.0, 0.0, 0.0)),
+            Vertex::new(nalgebra::Vector2::new(0.5, 0.5), nalgebra::Vector3::new(0.0, 1.0, 0.0)),
+            Vertex::new(nalgebra::Vector2::new(-0.5, 0.5), nalgebra::Vector3::new(0.0, 0.0, 1.0)),
         ];
         let vertex_buffer_info = vk::BufferCreateInfo::builder()
             .size(vertices.len() as u64 * mem::size_of::<Vertex>() as u64)
             .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .build();
-        let vertex_buffer = unsafe {
+        self.vertex_buffer = unsafe {
             self.core
                 .logical_device
                 .create_buffer(&vertex_buffer_info, None)
@@ -130,7 +124,7 @@ impl MainRenderSystem {
         let vertex_buffer_memory_requirements = unsafe {
             self.core
                 .logical_device
-                .get_buffer_memory_requirements(vertex_buffer)
+                .get_buffer_memory_requirements(self.vertex_buffer)
         };
         let vertex_buffer_memory_allocate_info = vk::MemoryAllocateInfo::builder()
             .allocation_size(vertex_buffer_memory_requirements.size)
@@ -139,7 +133,7 @@ impl MainRenderSystem {
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             ).unwrap())
             .build();
-        let vertex_buffer_memory = unsafe {
+        self.vertex_buffer_memory = unsafe {
             self.core
                 .logical_device
                 .allocate_memory(&vertex_buffer_memory_allocate_info, None)
@@ -148,14 +142,14 @@ impl MainRenderSystem {
         unsafe {
             self.core
                 .logical_device
-                .bind_buffer_memory(vertex_buffer, vertex_buffer_memory, 0)
+                .bind_buffer_memory(self.vertex_buffer, self.vertex_buffer_memory, 0)
                 .expect("Failed to bind vertex buffer memory")
         };
         let mapped_memory = unsafe {
             self.core
                 .logical_device
                 .map_memory(
-                    vertex_buffer_memory,
+                    self.vertex_buffer_memory,
                     0,
                     vertex_buffer_memory_requirements.size,
                     vk::MemoryMapFlags::empty(),
@@ -170,7 +164,7 @@ impl MainRenderSystem {
             );
             self.core
                 .logical_device
-                .unmap_memory(vertex_buffer_memory);
+                .unmap_memory(self.vertex_buffer_memory);
         }
     }
     pub fn bind(&mut self, command_buffer: vk::CommandBuffer) {
@@ -182,7 +176,6 @@ impl MainRenderSystem {
                 self.pipeline.graphic_pipeline,
             );
             //bind vertex buffer to cmd
-            println!("vertex_buffer: {:?}", self.vertex_buffer);
 
             self.core
                 .logical_device
