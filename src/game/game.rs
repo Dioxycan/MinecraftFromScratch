@@ -13,11 +13,13 @@ pub struct Game{
     pub window:Window,
     pub renderer:Renderer,
     render_system:MainRenderSystem,
+    event_loop:Rc<RefCell<event_loop::EventLoop<()>>>
 }
 
 impl Game{
-    pub fn new(event_loop:&event_loop::EventLoop<()>)->Self{
-        let mut window = Window::new(event_loop);
+    pub fn new()->Self{
+        let event_loop = event_loop::EventLoop::new();
+        let window = Window::new();
         let core = Rc::new(Core::new(&window));
         let renderer=Renderer::new(core.clone(),window.get_window_extent());
         let mut render_system = MainRenderSystem::new(core.clone());
@@ -27,6 +29,7 @@ impl Game{
             window,
             renderer,
             render_system,
+            event_loop:Rc::new(RefCell::new(event_loop))
         }
     }
     pub fn draw(&mut self){
@@ -39,8 +42,8 @@ impl Game{
             self.renderer.end_frame();
         }
     }
-    pub fn run(&mut self,event_loop:&mut event_loop::EventLoop<()>){
-        event_loop.run_return( move |event, _, control_flow| {
+    pub fn run(&mut self){
+        self.event_loop.clone().borrow_mut().run_return( move |event, _, control_flow| {
             // handle event
             match event {
                 winit::event::Event::WindowEvent { event, .. } => match event {

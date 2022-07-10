@@ -1,15 +1,17 @@
-use std::cell::{RefCell,Ref};
-
+use std::cell::RefCell;
+use std::rc::Rc;
 use ash::vk;
-use winit::{window,event_loop};
+use winit::{window,event_loop,platform::run_return::EventLoopExtRunReturn};
+
 
 
 pub struct Window{
     pub window:window::Window,
+    
 }
 impl Window{
-    pub fn new(event_loop:&event_loop::EventLoop<()>)->Self{
- 
+    pub fn new()->Self{
+        let event_loop = event_loop::EventLoop::new();
         let window = window::WindowBuilder::new()
             .with_title("Hello World!")
             .build(&event_loop)
