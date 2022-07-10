@@ -1,23 +1,27 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use ash::vk;
-use winit::{window,event_loop,platform::run_return::EventLoopExtRunReturn};
+use std::cell::{RefCell,Ref};
 
+use ash::vk;
+use winit::{window,event_loop};
+
+use super::surface::Surface;
 
 
 pub struct Window{
     pub window:window::Window,
-    
 }
 impl Window{
-    pub fn new()->Self{
-        let event_loop = event_loop::EventLoop::new();
+    pub fn new(event_loop:&event_loop::EventLoop<()>)->Self{
+ 
         let window = window::WindowBuilder::new()
             .with_title("Hello World!")
+            .with_inner_size(winit::dpi::LogicalSize::new(800.0, 600.0))
+            .with_resizable(true)
             .build(&event_loop)
             .expect("Failed to create window");
+
         Window{
             window,
+
         }
     }
     pub fn get_window_extent(&self)->vk::Extent2D{

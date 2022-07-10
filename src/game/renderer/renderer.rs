@@ -1,8 +1,8 @@
-use std::{rc::Rc, borrow::BorrowMut, cell::{RefCell,RefMut}};
+use std::rc::Rc;
 
 use super::{command::Command, swap_chain};
 use super::swap_chain::SwapChain;
-use crate::game::{core::Core, window::Window};
+use crate::game::{core::Core, window::Window, surface::{self, Surface}};
 use ash::vk;
 pub struct Renderer{
     pub swap_chain: SwapChain,
@@ -15,9 +15,9 @@ pub struct Renderer{
     pub window_extent: vk::Extent2D,
 }
 impl Renderer {
-    pub fn new(core: Rc<Core>, window_extent: vk::Extent2D) -> Self {
+    pub fn new(core: Rc<Core>, window_extent: vk::Extent2D,surface:&Surface) -> Self {
         let mut swap_chain = SwapChain::new(core.clone());
-        swap_chain.init(&window_extent,None);
+        swap_chain.init(&window_extent,surface,None);
         let command = Command::new(&core);
         Renderer {
             core,
@@ -31,14 +31,16 @@ impl Renderer {
 
         }
     }
-    pub fn recreate_swap_chain(&mut self) {
+    pub fn recreate_swap_chain(&mut self,window_extent: vk::Extent2D,surface:&Surface) {
         unsafe{
             self.core.logical_device.device_wait_idle().unwrap();
         }
-        let mut swap_chain = SwapChain::new(self.core.clone());
-        println!("{:?}",self.window_extent);
-        swap_chain.init(&self.window_extent,Some(self.swap_chain.swap_chain));
-        self.swap_chain = swap_chain;
+        let mut new = SwapChain::new(self.core.clone());
+        println!("w{:?}",window_extent);
+        new.init(&window_extent,surface,Some(self.swap_chain.swap_chain));
+        println!("ww{:?}",window_extent);
+        self.swap_chain = new;
+      
     }
     pub fn get_render_pass(&self) -> &vk::RenderPass {
         self.swap_chain.get_render_pass()
@@ -47,6 +49,7 @@ impl Renderer {
         self.command.command_buffers[self.current_frame_index as usize]
     }
     pub fn begin_frame(&mut self) -> vk::CommandBuffer {
+        println!("begin frame {}",self.is_window_resized);
         assert!(self.is_frame_started == false, "Frame already started");
         let command_buffer = self.get_current_command_buffer();
         match self.swap_chain.acquire_next_image() {
@@ -66,19 +69,13 @@ impl Renderer {
                     "Failed to acquire next image: {:?}",
                     ash::vk::Result::ERROR_OUT_OF_DATE_KHR
                 );
-                self.recreate_swap_chain();
                 return vk::CommandBuffer::null();
-            }
-            Err(ash::vk::Result::SUBOPTIMAL_KHR) => {
-                panic!(
-                    "Failed to acquire next image: {:?}",
-                    ash::vk::Result::SUBOPTIMAL_KHR
-                );
             }
             Err(err) => {
                 panic!("Failed to acquire next image: {:?}", err);
             }
         }
+        self.is_window_resized = false;
         return command_buffer;
     }
     pub fn end_frame(&mut self) {
@@ -94,13 +91,13 @@ impl Renderer {
                 .expect("Failed to end command buffer");
         }
         let result = self.swap_chain.submit_command_buffer(&command_buffer,&self.current_image_index);
-        if result == Err(ash::vk::Result::ERROR_OUT_OF_DATE_KHR) || result == Err(ash::vk::Result::SUBOPTIMAL_KHR)|| self.is_window_resized{
-            println!("Failed to submit command buffer: {:?}", result);
-            self.is_window_resized = false;
-            self.recreate_swap_chain();
-            self.is_frame_started = false;
-            return;
-        }
+        // if result == Err(ash::vk::Result::ERROR_OUT_OF_DATE_KHR) || result == Err(ash::vk::Result::SUBOPTIMAL_KHR)|| self.is_window_resized{
+        //     println!("Failed to submit command buffer: {:?}", result);
+        //     self.is_window_resized = false;
+        //     self.recreate_swap_chain();
+        //     self.is_frame_started = false;
+        //     return;
+        // }
         self.is_frame_started = false;
         self.current_frame_index = (self.current_frame_index +1) % super::swap_chain::MAX_FRAMES_IN_FLIGHT as u32;
     }

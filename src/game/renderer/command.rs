@@ -36,3 +36,4 @@ pub fn create_command_buffers(core:&Core,command_pool:&vk::CommandPool)->Vec<vk:
         core.logical_device.allocate_command_buffers(&command_buffer_allocate_info).expect("Failed to allocate command buffers")
     }
 }
+

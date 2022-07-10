@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use super::MAX_FRAMES_IN_FLIGHT;
 use crate::game::core::Core;
+use crate::game::surface::Surface;
 use ash::extensions::khr;
 use ash::prelude::*;
 use ash::vk;
@@ -50,8 +51,8 @@ impl SwapChain {
             current_frame: 0,
         }
     }
-    pub fn init(&mut self, window_extent: &vk::Extent2D, old_swap_chain: Option<vk::SwapchainKHR>) {
-        self.create_swap_chain(window_extent, old_swap_chain);
+    pub fn init(&mut self, window_extent:&vk::Extent2D,surface:&Surface, old_swap_chain: Option<vk::SwapchainKHR>) {
+        self.create_swap_chain(window_extent,surface, old_swap_chain);
         self.create_image_views();
         self.create_render_pass();
         self.create_depth_resources();
@@ -60,7 +61,8 @@ impl SwapChain {
     }
     fn create_swap_chain(
         &mut self,
-        window_extent: &vk::Extent2D,
+        window_extent:&vk::Extent2D,
+        surface:&Surface,
         old_swap_chain: Option<vk::SwapchainKHR>,
     ) {
         let old_swap_chain = old_swap_chain.unwrap_or(vk::SwapchainKHR::null());
@@ -68,7 +70,7 @@ impl SwapChain {
         let surface_format = choose_swap_surface_format(&swap_chain_support.formats);
         let present_mode = choose_swap_present_mode(&swap_chain_support.present_modes);
         let extent = choose_swap_extent(&swap_chain_support.capabilities, window_extent);
-
+        println!("surface format {:?}",extent);
         let mut image_count = swap_chain_support.capabilities.min_image_count + 1;
         if swap_chain_support.capabilities.max_image_count > 0
             && image_count > swap_chain_support.capabilities.max_image_count
@@ -76,10 +78,9 @@ impl SwapChain {
             image_count = swap_chain_support.capabilities.max_image_count;
         }
         let image_count = image_count;
-        println!("image_count: {}", image_count);
         let indices = self.core.queue_families.queue_family_indices.to_vec();
         let mut create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(self.core.surface.surface)
+            .surface(surface.surface)
             .min_image_count(image_count)
             .image_format(surface_format.format)
             .image_color_space(surface_format.color_space)
@@ -443,14 +444,14 @@ fn choose_swap_extent(
     capabilities: &vk::SurfaceCapabilitiesKHR,
     window_extent: &vk::Extent2D,
 ) -> vk::Extent2D {
-    if capabilities.current_extent.width != std::u32::MAX {
-        return capabilities.current_extent;
-    } else {
+    // if capabilities.current_extent.width != std::u32::MAX {
+    //     return capabilities.current_extent;
+    // } else {
         return vk::Extent2D {
             width: window_extent.width,
             height: window_extent.height,
         };
-    }
+    // } 
 }
 
 impl Drop for SwapChain {
