@@ -51,8 +51,8 @@ impl SwapChain {
             current_frame: 0,
         }
     }
-    pub fn init(&mut self, window_extent:&vk::Extent2D,surface:&Surface, old_swap_chain: Option<vk::SwapchainKHR>) {
-        self.create_swap_chain(window_extent,surface, old_swap_chain);
+    pub fn init(&mut self, window_extent:&vk::Extent2D, old_swap_chain: Option<vk::SwapchainKHR>) {
+        self.create_swap_chain(window_extent,old_swap_chain);
         self.create_image_views();
         self.create_render_pass();
         self.create_depth_resources();
@@ -62,7 +62,6 @@ impl SwapChain {
     fn create_swap_chain(
         &mut self,
         window_extent:&vk::Extent2D,
-        surface:&Surface,
         old_swap_chain: Option<vk::SwapchainKHR>,
     ) {
         let old_swap_chain = old_swap_chain.unwrap_or(vk::SwapchainKHR::null());
@@ -80,7 +79,7 @@ impl SwapChain {
         let image_count = image_count;
         let indices = self.core.queue_families.queue_family_indices.to_vec();
         let mut create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(surface.surface)
+            .surface(self.surface.surface)
             .min_image_count(image_count)
             .image_format(surface_format.format)
             .image_color_space(surface_format.color_space)

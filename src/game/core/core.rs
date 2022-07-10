@@ -15,6 +15,7 @@ use crate::IS_VALIDATION_LAYERS_ENABLED;
 pub struct Core {
     pub entry: ash::Entry,
     pub instance: Instance,
+    pub surface: Surface,
     extension_names: Vec<*const i8>,
     pub physical_device: vk::PhysicalDevice,
     pub logical_device: ash::Device,
@@ -23,7 +24,7 @@ pub struct Core {
     pub debug: Option<Debug>,
 }
 impl Core {
-    pub fn new(window: &Window) -> (Self, Surface) {
+    pub fn new(window: &Window) -> Self{
         let entry = ash::Entry::linked();
         let mut extension_names = window.enumerate_window_extensions();
         if IS_VALIDATION_LAYERS_ENABLED {
@@ -46,7 +47,7 @@ impl Core {
         let queue_families = QueueFamilies::from(indices, &logical_device);
         let swap_chain_support =
             SwapChainSupportDetails::query_swap_chain_support(&physical_device, &surface);
-        (
+            
             Core {
                 entry,
                 instance,
@@ -56,9 +57,9 @@ impl Core {
                 logical_device,
                 queue_families,
                 swap_chain_support,
-            },
-            surface,
-        )
+                surface,
+            }
+
     }
     pub fn find_supported_format(
         &self,

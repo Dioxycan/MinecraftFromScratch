@@ -1,5 +1,4 @@
 use super::core::Core;
-use super::surface;
 use super::window::Window;
 use super::renderer::Renderer;
 use std::rc::Rc;
@@ -16,14 +15,12 @@ pub struct Game{
     pub window:Window,
     pub renderer:Renderer,
     render_system:MainRenderSystem,
-    pub surface:surface::Surface,
 }
 
 impl Game{
     pub fn new(event_loop:&event_loop::EventLoop<()>)->Self{
         let mut window = Window::new(event_loop);
-        let (core,surface) = Core::new(&window);
-        let core = Rc::new(core);
+        let core = Rc::new(Core::new(&mut window));
         let renderer=Renderer::new(core.clone(),window.get_window_extent(),&surface);
         let mut render_system = MainRenderSystem::new(core.clone());
         render_system.init(renderer.get_render_pass());
@@ -32,7 +29,6 @@ impl Game{
             window,
             renderer,
             render_system,
-            surface,
         }
     }
     pub fn draw(&mut self){

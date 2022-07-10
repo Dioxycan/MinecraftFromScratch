@@ -15,9 +15,9 @@ pub struct Renderer{
     pub window_extent: vk::Extent2D,
 }
 impl Renderer {
-    pub fn new(core: Rc<Core>, window_extent: vk::Extent2D,surface:&Surface) -> Self {
+    pub fn new(core: Rc<Core>, window_extent: vk::Extent2D) -> Self {
         let mut swap_chain = SwapChain::new(core.clone());
-        swap_chain.init(&window_extent,surface,None);
+        swap_chain.init(&window_extent,None);
         let command = Command::new(&core);
         Renderer {
             core,
@@ -31,14 +31,12 @@ impl Renderer {
 
         }
     }
-    pub fn recreate_swap_chain(&mut self,window_extent: vk::Extent2D,surface:&Surface) {
+    pub fn recreate_swap_chain(&mut self,window_extent: vk::Extent2D) {
         unsafe{
             self.core.logical_device.device_wait_idle().unwrap();
         }
         let mut new = SwapChain::new(self.core.clone());
-        println!("w{:?}",window_extent);
-        new.init(&window_extent,surface,Some(self.swap_chain.swap_chain));
-        println!("ww{:?}",window_extent);
+        new.init(&window_extent,Some(self.swap_chain.swap_chain));
         self.swap_chain = new;
       
     }
@@ -75,7 +73,7 @@ impl Renderer {
                 panic!("Failed to acquire next image: {:?}", err);
             }
         }
-        self.is_window_resized = false;
+
         return command_buffer;
     }
     pub fn end_frame(&mut self) {
