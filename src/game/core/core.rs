@@ -3,7 +3,6 @@ use crate::game::window::Window;
 use ash::extensions::ext::DebugUtils;
 use ash::vk;
 use ash::Instance;
-use std::cell::Ref;
 
 use super::debug::Debug;
 use super::instance::create_instance;
@@ -20,7 +19,6 @@ pub struct Core {
     pub physical_device: vk::PhysicalDevice,
     pub logical_device: ash::Device,
     pub queue_families: QueueFamilies,
-    pub swap_chain_support: SwapChainSupportDetails,
     pub debug: Option<Debug>,
 }
 impl Core {
@@ -45,9 +43,6 @@ impl Core {
         let physical_device = pick_physical_device(&instance, &surface, &mut indices);
         let logical_device = create_logical_device(&instance, &physical_device, &surface);
         let queue_families = QueueFamilies::from(indices, &logical_device);
-        let swap_chain_support =
-            SwapChainSupportDetails::query_swap_chain_support(&physical_device, &surface);
-            
             Core {
                 entry,
                 instance,
@@ -56,10 +51,12 @@ impl Core {
                 physical_device,
                 logical_device,
                 queue_families,
-                swap_chain_support,
                 surface,
             }
 
+    }
+    pub fn query_swap_chain_support(&self) -> SwapChainSupportDetails {
+        SwapChainSupportDetails::query_swap_chain_support(&self.physical_device, &self.surface)
     }
     pub fn find_supported_format(
         &self,
@@ -110,6 +107,7 @@ impl Drop for Core {
         println!("dropping core");
         unsafe {
             self.logical_device.destroy_device(None);
+             
             match self.debug {
                 Some(ref debug) => {
                     debug
@@ -118,7 +116,7 @@ impl Drop for Core {
                 }
                 None => {}
             }
-
+            self.surface.surface_loader.destroy_surface(self.surface.surface, None);
             self.instance.destroy_instance(None);
         }
     }

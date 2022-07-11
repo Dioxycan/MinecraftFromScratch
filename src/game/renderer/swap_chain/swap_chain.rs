@@ -2,7 +2,6 @@ use std::rc::Rc;
 
 use super::MAX_FRAMES_IN_FLIGHT;
 use crate::game::core::Core;
-use crate::game::surface::Surface;
 use ash::extensions::khr;
 use ash::prelude::*;
 use ash::vk;
@@ -13,7 +12,6 @@ pub struct SwapChain {
     pub swap_chain: vk::SwapchainKHR,
     images: Vec<vk::Image>,
     image_format: vk::Format,
-    extent: vk::Extent2D,
     image_views: Vec<vk::ImageView>,
     render_pass: vk::RenderPass,
     depth_images: Vec<vk::Image>,
@@ -36,7 +34,6 @@ impl SwapChain {
             swap_chain: vk::SwapchainKHR::null(),
             images: Vec::new(),
             image_format: vk::Format::default(),
-            extent: vk::Extent2D::default(),
             image_views: Vec::new(),
             render_pass: vk::RenderPass::null(),
             depth_images: Vec::new(),
@@ -65,11 +62,10 @@ impl SwapChain {
         old_swap_chain: Option<vk::SwapchainKHR>,
     ) {
         let old_swap_chain = old_swap_chain.unwrap_or(vk::SwapchainKHR::null());
-        let swap_chain_support = &self.core.swap_chain_support;
+        let swap_chain_support = &self.core.query_swap_chain_support();
         let surface_format = choose_swap_surface_format(&swap_chain_support.formats);
         let present_mode = choose_swap_present_mode(&swap_chain_support.present_modes);
         let extent = choose_swap_extent(&swap_chain_support.capabilities, window_extent);
-        println!("surface format {:?}",extent);
         let mut image_count = swap_chain_support.capabilities.min_image_count + 1;
         if swap_chain_support.capabilities.max_image_count > 0
             && image_count > swap_chain_support.capabilities.max_image_count
@@ -79,7 +75,7 @@ impl SwapChain {
         let image_count = image_count;
         let indices = self.core.queue_families.queue_family_indices.to_vec();
         let mut create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(self.surface.surface)
+            .surface(self.core.surface.surface)
             .min_image_count(image_count)
             .image_format(surface_format.format)
             .image_color_space(surface_format.color_space)
@@ -226,7 +222,7 @@ impl SwapChain {
             vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
         );
         let extent = &self.swap_chain_extent;
-        for i in 0..self.images.len() {
+        for _i in 0..self.images.len() {
             let image_create_info = vk::ImageCreateInfo::builder()
                 .image_type(vk::ImageType::TYPE_2D)
                 .extent(vk::Extent3D {
@@ -249,7 +245,7 @@ impl SwapChain {
                     .create_image(&image_create_info, None)
                     .expect("Failed to create image")
             };
-            let mut mem_req: vk::MemoryRequirements = unsafe {
+            let mem_req: vk::MemoryRequirements = unsafe {
                 self.core
                     .logical_device
                     .get_image_memory_requirements(image)
@@ -322,7 +318,7 @@ impl SwapChain {
         let fence_info = vk::FenceCreateInfo::builder()
             .flags(vk::FenceCreateFlags::SIGNALED)
             .build();
-        for i in 0..MAX_FRAMES_IN_FLIGHT {
+        for _i in 0..MAX_FRAMES_IN_FLIGHT {
             let semaphore = unsafe {
                 self.core
                     .logical_device
@@ -369,8 +365,8 @@ impl SwapChain {
         &mut self,
         command_buffer: &vk::CommandBuffer,
         image_index: &u32,
-    ) -> VkResult<(bool)> {
-        if (self.image_in_flight[*image_index as usize] != vk::Fence::null()) {
+    ) -> VkResult<bool> {
+        if self.image_in_flight[*image_index as usize] != vk::Fence::null() {
             unsafe {
                 self.core
                     .logical_device
@@ -443,19 +439,18 @@ fn choose_swap_extent(
     capabilities: &vk::SurfaceCapabilitiesKHR,
     window_extent: &vk::Extent2D,
 ) -> vk::Extent2D {
-    // if capabilities.current_extent.width != std::u32::MAX {
-    //     return capabilities.current_extent;
-    // } else {
+    if capabilities.current_extent.width != std::u32::MAX {
+        return capabilities.current_extent;
+    } else {
         return vk::Extent2D {
             width: window_extent.width,
             height: window_extent.height,
         };
-    // } 
+    } 
 }
 
 impl Drop for SwapChain {
     fn drop(&mut self) {
-        println!("droping swap chain");
         unsafe {
             for view in self.image_views.iter() {
                 self.core.logical_device.destroy_image_view(*view, None);

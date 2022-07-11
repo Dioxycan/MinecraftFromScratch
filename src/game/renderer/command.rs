@@ -1,4 +1,4 @@
-use ash::vk;
+use ash::vk::{self, CommandPoolTrimFlagsKHR};
 use crate::game::core::Core;
 use crate::game::renderer::swap_chain::MAX_FRAMES_IN_FLIGHT;
 
@@ -36,4 +36,3 @@ pub fn create_command_buffers(core:&Core,command_pool:&vk::CommandPool)->Vec<vk:
         core.logical_device.allocate_command_buffers(&command_buffer_allocate_info).expect("Failed to allocate command buffers")
     }
 }
-

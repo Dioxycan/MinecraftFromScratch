@@ -102,3 +102,19 @@ fn read_shader_code(file_path: &'static str) -> Vec<u8> {
         .expect("Failed to read shader file");
     code
 }
+
+impl Drop for Pipeline {
+    fn drop(&mut self) {
+        unsafe {
+            self.core
+                .logical_device
+                .destroy_shader_module(self.vert_shader_module, None);
+            self.core
+                .logical_device
+                .destroy_shader_module(self.frag_shader_module, None);
+            self.core
+                .logical_device
+                .destroy_pipeline(self.graphic_pipeline, None);
+        }
+    }
+}

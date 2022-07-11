@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
-use super::{command::Command, swap_chain};
+use super::{command::Command};
 use super::swap_chain::SwapChain;
-use crate::game::{core::Core, window::Window, surface::{self, Surface}};
+use crate::game::{core::Core};
 use ash::vk;
 pub struct Renderer{
     pub swap_chain: SwapChain,
@@ -11,8 +11,6 @@ pub struct Renderer{
     pub command: Command,
     pub current_frame_index: u32,
     pub current_image_index: u32,
-    pub is_window_resized: bool,
-    pub window_extent: vk::Extent2D,
 }
 impl Renderer {
     pub fn new(core: Rc<Core>, window_extent: vk::Extent2D) -> Self {
@@ -23,11 +21,9 @@ impl Renderer {
             core,
             swap_chain: swap_chain,
             is_frame_started: false,
-            window_extent,
             command,
             current_frame_index: 0,
             current_image_index: 0,
-            is_window_resized: false,
 
         }
     }
@@ -47,11 +43,10 @@ impl Renderer {
         self.command.command_buffers[self.current_frame_index as usize]
     }
     pub fn begin_frame(&mut self) -> vk::CommandBuffer {
-        println!("begin frame {}",self.is_window_resized);
         assert!(self.is_frame_started == false, "Frame already started");
         let command_buffer = self.get_current_command_buffer();
         match self.swap_chain.acquire_next_image() {
-            Ok((image_index,is_ok)) => {
+            Ok((image_index,_is_ok)) => {
                 self.current_image_index = image_index;
                 self.is_frame_started = true;
                 let begin_info = vk::CommandBufferBeginInfo::default();
@@ -89,13 +84,11 @@ impl Renderer {
                 .expect("Failed to end command buffer");
         }
         let result = self.swap_chain.submit_command_buffer(&command_buffer,&self.current_image_index);
-        // if result == Err(ash::vk::Result::ERROR_OUT_OF_DATE_KHR) || result == Err(ash::vk::Result::SUBOPTIMAL_KHR)|| self.is_window_resized{
-        //     println!("Failed to submit command buffer: {:?}", result);
-        //     self.is_window_resized = false;
-        //     self.recreate_swap_chain();
-        //     self.is_frame_started = false;
-        //     return;
-        // }
+        if result == Err(ash::vk::Result::ERROR_OUT_OF_DATE_KHR) || result == Err(ash::vk::Result::SUBOPTIMAL_KHR){
+            println!("Failed to submit command buffer: {:?}", result);
+            self.is_frame_started = false;
+            return;
+        }
         self.is_frame_started = false;
         self.current_frame_index = (self.current_frame_index +1) % super::swap_chain::MAX_FRAMES_IN_FLIGHT as u32;
     }
@@ -168,6 +161,15 @@ impl Renderer {
         );
         unsafe {
             self.core.logical_device.cmd_end_render_pass(command_buffer);
+        }
+    }
+}
+
+impl Drop for Renderer{
+    fn drop(&mut self) {
+        unsafe {
+        self.core.logical_device.free_command_buffers(self.command.command_pool, &self.command.command_buffers);
+        self.core.logical_device.destroy_command_pool(self.command.command_pool, None);
         }
     }
 }

@@ -1,10 +1,6 @@
-use std::cell::{RefCell,Ref};
 
 use ash::vk;
 use winit::{window,event_loop};
-
-use super::surface::Surface;
-
 
 pub struct Window{
     pub window:window::Window,
