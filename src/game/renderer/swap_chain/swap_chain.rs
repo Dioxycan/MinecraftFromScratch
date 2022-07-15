@@ -147,6 +147,7 @@ impl SwapChain {
             vk::ImageTiling::OPTIMAL,
             vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
         );
+        println!("depth format: {:?}", depth_format);
         let color_attachment = vk::AttachmentDescription {
             format: self.image_format,
             samples: vk::SampleCountFlags::TYPE_1,

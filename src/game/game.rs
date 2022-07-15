@@ -65,12 +65,14 @@ impl Game{
                             }
                         },
                         | WindowEvent::Resized(_new_size) => {
-                            *control_flow = ControlFlow::Wait;
+                            if _new_size.width ==0 && _new_size.height == 0{
+                                println!("new size {:?}",_new_size);
+                            }else{
                             unsafe {
                                 self.core.logical_device.device_wait_idle().unwrap();
                             }
                             self.renderer.recreate_swap_chain(vk::Extent2D{width:_new_size.width,height:_new_size.height});
-
+                        }   
                         },
                         | _ => {},
                     }
@@ -82,9 +84,6 @@ impl Game{
                     self.draw();
                 },
                 | Event::LoopDestroyed => {
-                    unsafe {
-                        self.core.logical_device.device_wait_idle().unwrap();
-                    }
                 },
                 _ => (),
             }

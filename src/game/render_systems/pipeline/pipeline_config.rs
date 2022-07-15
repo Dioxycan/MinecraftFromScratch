@@ -31,7 +31,7 @@ impl PipelineConfig {
             .line_width(1.0)
             .cull_mode(vk::CullModeFlags::NONE)
             .front_face(vk::FrontFace::CLOCKWISE)
-            .depth_bias_enable(false)
+            .depth_bias_enable(true)
             .depth_bias_constant_factor(0.0)
             .depth_bias_clamp(0.0)
             .depth_bias_slope_factor(0.0)
@@ -43,7 +43,7 @@ impl PipelineConfig {
             .alpha_to_coverage_enable(false)
             .alpha_to_one_enable(false)
             .build();
-        self.color_blend_attachment = vk::PipelineColorBlendAttachmentState{
+        self.color_blend_attachment = vk::PipelineColorBlendAttachmentState {
             blend_enable: vk::FALSE,
             src_color_blend_factor: vk::BlendFactor::ONE,
             dst_color_blend_factor: vk::BlendFactor::ZERO,
@@ -51,9 +51,12 @@ impl PipelineConfig {
             src_alpha_blend_factor: vk::BlendFactor::ONE,
             dst_alpha_blend_factor: vk::BlendFactor::ZERO,
             alpha_blend_op: vk::BlendOp::ADD,
-            color_write_mask: vk::ColorComponentFlags::R|vk::ColorComponentFlags::G|vk::ColorComponentFlags::B|vk::ColorComponentFlags::A,
+            color_write_mask: vk::ColorComponentFlags::R
+                | vk::ColorComponentFlags::G
+                | vk::ColorComponentFlags::B
+                | vk::ColorComponentFlags::A,
         };
-        self.color_blend_state = vk::PipelineColorBlendStateCreateInfo{
+        self.color_blend_state = vk::PipelineColorBlendStateCreateInfo {
             logic_op_enable: vk::FALSE,
             logic_op: vk::LogicOp::COPY,
             attachment_count: 1,
@@ -62,32 +65,32 @@ impl PipelineConfig {
             ..Default::default()
         };
         self.depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
-            .depth_test_enable(false)
-            .depth_write_enable(false)
+            .depth_test_enable(true)
+            .depth_write_enable(true)
             .depth_compare_op(vk::CompareOp::LESS)
             .depth_bounds_test_enable(false)
             .stencil_test_enable(false)
             .front(
-                vk::StencilOpState::default(), // builder()
-                                               // .fail_op(vk::StencilOp::KEEP)
-                                               // .pass_op(vk::StencilOp::KEEP)
-                                               // .depth_fail_op(vk::StencilOp::KEEP)
-                                               // .compare_op(vk::CompareOp::ALWAYS)
-                                               // .compare_mask(0)
-                                               // .write_mask(0)
-                                               // .reference(0)
-                                               // .build()
+                vk::StencilOpState::builder()
+                    .fail_op(vk::StencilOp::KEEP)
+                    .pass_op(vk::StencilOp::KEEP)
+                    .depth_fail_op(vk::StencilOp::KEEP)
+                    .compare_op(vk::CompareOp::ALWAYS)
+                    .compare_mask(0)
+                    .write_mask(0)
+                    .reference(0)
+                    .build(),
             )
             .back(
-                vk::StencilOpState::default(), // builder()
-                                               // .fail_op(vk::StencilOp::KEEP)
-                                               // .pass_op(vk::StencilOp::KEEP)
-                                               // .depth_fail_op(vk::StencilOp::KEEP)
-                                               // .compare_op(vk::CompareOp::ALWAYS)
-                                               // .compare_mask(0)
-                                               // .write_mask(0)
-                                               // .reference(0)
-                                               // .build()
+                vk::StencilOpState::builder()
+                    .fail_op(vk::StencilOp::KEEP)
+                    .pass_op(vk::StencilOp::KEEP)
+                    .depth_fail_op(vk::StencilOp::KEEP)
+                    .compare_op(vk::CompareOp::ALWAYS)
+                    .compare_mask(0)
+                    .write_mask(0)
+                    .reference(0)
+                    .build(),
             )
             .build();
         self.dynamic_state_enables = vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
