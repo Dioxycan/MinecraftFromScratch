@@ -3,7 +3,7 @@ use crate::game::core::Core;
 use crate::offset_of;
 use ash::vk;
 use nalgebra_glm as glm;
-use std::mem::{self, align_of};
+use std::mem;
 use std::rc::Rc;
 #[derive(Debug)]
 pub struct PushConstant {
@@ -105,59 +105,6 @@ impl MainRenderSystem {
             &attribute_descriptions,
         );
     }
-
-    //     std::vector<LveModel::Vertex> vertices{
-
-    //       // left face (white)
-    //       {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-    //       {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-    //       {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-    //       {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-    //       {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
-    //       {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-
-    //       // right face (yellow)
-    //       {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-    //       {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-    //       {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-    //       {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-    //       {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
-    //       {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-
-    //       // top face (orange, remember y axis points down)
-    //       {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-    //       {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-    //       {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-    //       {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-    //       {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-    //       {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-
-    //       // bottom face (red)
-    //       {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-    //       {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-    //       {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-    //       {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-    //       {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-    //       {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-
-    //       // nose face (blue)
-    //       {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-    //       {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-    //       {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-    //       {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-    //       {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-    //       {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-
-    //       // tail face (green)
-    //       {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-    //       {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-    //       {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-    //       {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-    //       {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-    //       {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-
-    //   };
-    
     pub fn bind(&mut self, command_buffer: vk::CommandBuffer) {
         let pipeline_bind_point = vk::PipelineBindPoint::GRAPHICS;
         let push_constant = PushConstant {
@@ -170,13 +117,6 @@ impl MainRenderSystem {
                 self.pipeline.graphic_pipeline,
             );
             //bind vertex buffer to cmd
-
-            self.core.logical_device.cmd_bind_vertex_buffers(
-                command_buffer,
-                0,
-                &[self.vertex_buffer],
-                &[0],
-            );
             self.core.logical_device.cmd_push_constants(
                 command_buffer,
                 self.pipeline_layout,
@@ -186,24 +126,10 @@ impl MainRenderSystem {
             )
         }
     }
-    pub fn draw(&mut self, command_buffer: vk::CommandBuffer) {
-        unsafe {
-            self.core
-                .logical_device
-                .cmd_draw(command_buffer, self.vertex_count as u32, 1, 0, 0);
-        }
-    }
 }
-
 impl Drop for MainRenderSystem {
     fn drop(&mut self) {
         unsafe {
-            self.core
-                .logical_device
-                .destroy_buffer(self.vertex_buffer, None);
-            self.core
-                .logical_device
-                .free_memory(self.vertex_buffer_memory, None);
             self.core
                 .logical_device
                 .destroy_pipeline_layout(self.pipeline_layout, None);

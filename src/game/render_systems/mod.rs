@@ -1,7 +1,8 @@
 mod main_render_system;
 mod pipeline;
+mod render_system;
 pub use main_render_system::MainRenderSystem;
-
+pub use render_system::RenderSystem;
 #[macro_export]
 macro_rules! offset_of {
     ($base:path, $field:ident) => {{
@@ -12,3 +13,4 @@ macro_rules! offset_of {
         }
     }};
 }
+

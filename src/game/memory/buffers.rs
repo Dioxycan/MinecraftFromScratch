@@ -1,4 +1,4 @@
-fn create_vertex_buffer(&mut self) {
+fn create_vertex_buffer() {
     let vertices = vec![
         
         Vertex::new(glm::Vec3::new(0.25, -0.25,0.5), glm::Vec3::new(1.0, 0.0, 0.0)),
@@ -7,13 +7,13 @@ fn create_vertex_buffer(&mut self) {
 
     ];
 
-    self.vertex_count = mem::size_of::<Vertex>() as u64;
+    let vertex_count = mem::size_of::<Vertex>() as u64;
     let vertex_buffer_info = vk::BufferCreateInfo::builder()
-        .size(self.vertex_count * vertices.len() as u64)
+        .size(vertex_count * vertices.len() as u64)
         .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
         .sharing_mode(vk::SharingMode::EXCLUSIVE)
         .build();
-    self.vertex_buffer = unsafe {
+    let vertex_buffer = unsafe {
         self.core
             .logical_device
             .create_buffer(&vertex_buffer_info, None)
@@ -68,5 +68,12 @@ fn create_vertex_buffer(&mut self) {
         self.core
             .logical_device
             .unmap_memory(self.vertex_buffer_memory);
+    }
+}
+pub fn draw(&mut self, command_buffer: vk::CommandBuffer) {
+    unsafe {
+        self.core
+            .logical_device
+            .cmd_draw(command_buffer, self.vertex_count as u32, 1, 0, 0);
     }
 }
