@@ -22,6 +22,16 @@ impl Game{
         let mut render_system = MainRenderSystem::new(core.clone());
         render_system.init(renderer.get_render_pass());
         let game_objects = GameObjects::new();
+        let vertex_buffer_info = vk::BufferCreateInfo::builder()
+            .size()
+            .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .build();
+        let vertex_buffer = unsafe{
+            core.logical_device.create_buffer(
+
+                , None)
+        }
         unsafe{
             println!("{:?}",core.logical_device.get_buffer_memory_requirements(vk::Buffer::null()));
         }
@@ -37,7 +47,7 @@ impl Game{
         let command_buffer = self.renderer.begin_frame();
         if command_buffer != vk::CommandBuffer::null() {
             self.renderer.begin_render_pass(command_buffer);
-            self.render_system.bind(command_buffer);                                                                                           
+            self.render_system.bind(command_buffer);                                                                                         
             self.renderer.end_render_pass(command_buffer);
             self.renderer.end_frame();
         }
