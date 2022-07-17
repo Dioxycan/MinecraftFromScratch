@@ -18,6 +18,9 @@ pub fn pick_physical_device(instance:&Instance,surface:&Surface,indices:&mut Que
         let properties = unsafe{
             instance.get_physical_device_properties(physical_device)
         };
+        let p = unsafe{
+            instance.get_physical_device_memory_properties(physical_device)
+        };
         println!("{:?}",unsafe{CStr::from_ptr(properties.device_name.as_ptr())});
         if is_device_is_suitable(instance,&physical_device,surface,indices){
             return physical_device;
