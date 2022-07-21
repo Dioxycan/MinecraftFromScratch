@@ -6,10 +6,11 @@ layout(location = 0) out vec3 fragColor;
 
 layout(push_constant) uniform Push
 {
-    vec3 offset;
+    mat4 view;
+    mat4 projection;
 }push;
 
 void main(){
-    gl_Position = vec4(position+push.offset,1.0);
+    gl_Position =push.projection*push.view* vec4(position,1.0);
     fragColor = color;
 }

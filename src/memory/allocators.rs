@@ -15,6 +15,7 @@ pub struct Allocator {
     pub memory_type_index: u32,
     pub memory_flags: vk::MemoryPropertyFlags,
     pub list: List<Block>,
+    pub host_data_ptr: Option<*mut c_void>,
 }
 #[derive(Debug)]
 pub struct Block {
@@ -58,7 +59,7 @@ impl Allocator {
                 .allocate_memory(&create_info, None)
                 .expect("Failed to allocate memory")
         };
-        println!("{:?}",type_index);
+        println!("{:?}", type_index);
         Self {
             core,
             handle,
@@ -67,10 +68,10 @@ impl Allocator {
             memory_flags: memory_flags,
             free_memory: allocation_size,
             list: List::new(Block::new(0, allocation_size, None)),
+            host_data_ptr: None,
         }
     }
     pub fn allocate_memory(&mut self, buffer: &Buffer, buffer_index: usize) {
-
         let node = self.find_block(buffer.memory_requirements);
 
         if let Some(node) = node {
@@ -84,7 +85,7 @@ impl Allocator {
             };
             if block.size - buffer.size > 0 {
                 let new_block = Block::new(
-                    block.offset + buffer.size+1,
+                    block.offset + buffer.size + 1,
                     block.size - buffer.size,
                     None,
                 );
@@ -125,7 +126,6 @@ impl Allocator {
                 pre = Some(node.clone());
             }
         });
-       
     }
     pub fn find_block(&mut self, memory_requirements: vk::MemoryRequirements) -> Link<Block> {
         println!("{:?}", memory_requirements);
@@ -135,18 +135,21 @@ impl Allocator {
             block.size >= memory_requirements.size
         })
     }
-    pub fn map_memory(&self) -> Result<*mut c_void,&str> {
-        if self.memory_flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE) {
-            return unsafe {
-                match self.core
-                .logical_device
-                .map_memory(self.handle, 0, self.size, vk::MemoryMapFlags::empty()){
-                    Ok(ptr) => Ok(ptr),
-                    Err(_) => Err("Failed to map memory"),
-                }
+    pub fn map_memory(&mut self) {
+        if self
+            .memory_flags
+            .contains(vk::MemoryPropertyFlags::HOST_VISIBLE)
+        {
+            self.host_data_ptr = unsafe {
+                Some(
+                    self.core
+                        .logical_device
+                        .map_memory(self.handle, 0, self.size, vk::MemoryMapFlags::empty())
+                        .expect("Failed to map memory"),
+                )
             }
         }
-        Err("Can't map to a non-host visible memory")
+        eprintln!("Can't map to a non-host visible memory");
     }
 }
 

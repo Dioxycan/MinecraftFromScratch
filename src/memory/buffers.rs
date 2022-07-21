@@ -10,6 +10,7 @@ pub struct Buffer{
     pub memory_requirements:vk::MemoryRequirements,
     pub size:vk::DeviceSize,
     pub allocator_index:Option<usize>,
+    pub free_memory:vk::DeviceSize,
 }
 impl Buffer{
     pub fn new(core:Rc<Core>,buffer_info:vk::BufferCreateInfo,memory_type:vk::MemoryPropertyFlags)->Self{
@@ -28,6 +29,7 @@ impl Buffer{
             memory_requirements,
             size:buffer_info.size,
             allocator_index:None,
+            free_memory:buffer_info.size,
         }
     }
    

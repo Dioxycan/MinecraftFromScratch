@@ -1,55 +1,29 @@
 use super::pipeline::{Pipeline, PipelineConfig};
 use crate::core::Core;
-use crate::offset_of;
+
 use ash::vk;
 use nalgebra_glm as glm;
 use std::mem;
 use std::rc::Rc;
 #[derive(Debug)]
 pub struct PushConstant {
-    pub offset: glm::Vec3,
+    pub view: glm::Mat4,
+    pub proj: glm::Mat4,
 }
 impl PushConstant {
-    pub fn new(transform: glm::Mat2, offset: glm::Vec3) -> Self {
-        PushConstant {  offset }
+    pub fn new(view: glm::Mat4, proj: glm::Mat4) -> Self {
+        PushConstant { view, proj }
     }
-    pub fn to_u8(&self) -> Vec<u8> {
-        unsafe { self.offset.as_slice().align_to::<u8>().1.to_owned() }
-    }
-}
-#[derive(Debug)]
-pub struct Vertex {
-    pub position: glm::Vec3,
-    pub color: glm::Vec3,
-}
-impl Vertex {
-    pub fn new(position: glm::Vec3, color: glm::Vec3) -> Self {
-        Vertex { position, color }
-    }
-    pub fn get_binding_description() -> vk::VertexInputBindingDescription {
-        vk::VertexInputBindingDescription::builder()
-            .binding(0)
-            .stride(mem::size_of::<Vertex>() as u32)
-            .input_rate(vk::VertexInputRate::VERTEX)
-            .build()
-    }
-    pub fn get_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
-        vec![
-            vk::VertexInputAttributeDescription::builder()
-                .binding(0)
-                .location(0)
-                .format(vk::Format::R32G32B32_SFLOAT)
-                .offset(offset_of!(Vertex, position) as u32)
-                .build(),
-            vk::VertexInputAttributeDescription::builder()
-                .binding(0)
-                .location(1)
-                .format(vk::Format::R32G32B32_SFLOAT)
-                .offset(offset_of!(Vertex, color) as u32)
-                .build(),
-        ]
+    pub fn as_u8(&self) -> Vec<u8> {
+        unsafe { 
+            let mut view = self.view.as_slice().align_to::<u8>().1.to_owned();
+            view.append(&mut self.proj.as_slice().align_to::<u8>().1.to_owned());
+            view
+        }
+
     }
 }
+
 pub struct MainRenderSystem {
     core: Rc<Core>,
     pipeline_layout: vk::PipelineLayout,
@@ -63,13 +37,17 @@ impl MainRenderSystem {
             core,
         }
     }
-    pub fn init(&mut self, render_pass: &vk::RenderPass) {
+    pub fn init(
+        &mut self,
+        render_pass: &vk::RenderPass,
+        attribute_descriptions: &Vec<vk::VertexInputAttributeDescription>,
+        binding_descriptions: &Vec<vk::VertexInputBindingDescription>,
+    ) {
         self.create_pipeline_layout();
-        self.create_pipeline(render_pass);
+        self.create_pipeline(render_pass, attribute_descriptions, binding_descriptions);
     }
 
     fn create_pipeline_layout(&mut self) {
-        
         let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
             .push_constant_ranges(&[vk::PushConstantRange::builder()
                 .stage_flags(vk::ShaderStageFlags::VERTEX)
@@ -86,7 +64,12 @@ impl MainRenderSystem {
         };
         self.pipeline_layout = pipeline_layout;
     }
-    fn create_pipeline(&mut self, render_pass: &vk::RenderPass) {
+    fn create_pipeline(
+        &mut self,
+        render_pass: &vk::RenderPass,
+        attribute_descriptions: &Vec<vk::VertexInputAttributeDescription>,
+        binding_descriptions: &Vec<vk::VertexInputBindingDescription>,
+    ) {
         assert!(
             self.pipeline_layout != vk::PipelineLayout::default(),
             "Cannot create pipeline before pipeline layout"
@@ -95,21 +78,16 @@ impl MainRenderSystem {
         pipeline_config.init();
         pipeline_config.render_pass = render_pass.clone();
         pipeline_config.pipeline_layout = self.pipeline_layout;
-        let binding_description = Vertex::get_binding_description();
-        let attribute_descriptions = Vertex::get_attribute_descriptions();
         self.pipeline.create_graphic_pipeline(
             "shaders/shader.vert.spv",
             "shaders/shader.frag.spv",
             pipeline_config,
-            &[binding_description],
-            &attribute_descriptions,
+            binding_descriptions.as_slice(),
+            attribute_descriptions.as_slice(),
         );
     }
-    pub fn bind(&mut self, command_buffer: vk::CommandBuffer) {
+    pub fn bind(&mut self, command_buffer: vk::CommandBuffer,push_constant:PushConstant) {
         let pipeline_bind_point = vk::PipelineBindPoint::GRAPHICS;
-        let push_constant = PushConstant {
-            offset: glm::Vec3::new(0.0, -0.25,0.0),
-        };
         unsafe {
             self.core.logical_device.cmd_bind_pipeline(
                 command_buffer,
@@ -122,7 +100,7 @@ impl MainRenderSystem {
                 self.pipeline_layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
-                push_constant.to_u8().as_slice(),
+                push_constant.as_u8().as_slice(),
             )
         }
     }

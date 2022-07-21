@@ -1,4 +1,4 @@
-mod main_render_system;
+pub mod main_render_system;
 mod pipeline;
 mod render_system;
 pub use main_render_system::MainRenderSystem;
