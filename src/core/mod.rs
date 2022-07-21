@@ -1,15 +1,25 @@
-use super::logical_device::create_logical_device;
-use crate::game::window::Window;
+pub mod queue;
+mod physical_device;
+mod swap_chain_support;
+mod logical_device;
+mod instance;
+mod debug;
+mod surface;
+
+const DEVICE_EXTENSIONS: [&'static str; 1] = ["VK_KHR_swapchain"];
+
+use logical_device::create_logical_device;
+use crate::window::Window;
 use ash::extensions::ext::DebugUtils;
 use ash::vk;
 use ash::Instance;
 
-use super::debug::Debug;
-use super::instance::create_instance;
-use super::physical_device::pick_physical_device;
-use super::queue::{QueueFamilies, QueueFamilyIndices};
-use super::surface::Surface;
-use super::swap_chain_support::SwapChainSupportDetails;
+use debug::Debug;
+use instance::create_instance;
+use physical_device::pick_physical_device;
+use queue::{QueueFamilies, QueueFamilyIndices};
+use surface::Surface;
+use swap_chain_support::SwapChainSupportDetails;
 use crate::IS_VALIDATION_LAYERS_ENABLED;
 pub struct Core {
     pub entry: ash::Entry,

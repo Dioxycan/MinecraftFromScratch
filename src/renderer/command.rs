@@ -1,6 +1,6 @@
 use ash::vk::{self, CommandPoolTrimFlagsKHR};
-use crate::game::core::Core;
-use crate::game::renderer::swap_chain::MAX_FRAMES_IN_FLIGHT;
+use crate::core::Core;
+use crate::renderer::swap_chain::MAX_FRAMES_IN_FLIGHT;
 
 pub struct Command{
     pub command_pool: vk::CommandPool,

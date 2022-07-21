@@ -1,4 +1,10 @@
 mod game;
+mod utils;
+mod memory;
+mod core;
+mod render_systems;
+mod window;
+mod renderer;
 use winit::event_loop;
 
 use crate::game::Game;

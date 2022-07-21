@@ -1,5 +1,5 @@
 use super::pipeline_config::PipelineConfig;
-use crate::game::core::Core;
+use crate::core::Core;
 use ash::vk;
 use std::ffi::CStr;
 use std::io::prelude::*;

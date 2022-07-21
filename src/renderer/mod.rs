@@ -1,9 +1,11 @@
+mod command;
+mod swap_chain;
 use std::rc::Rc;
-
-use super::{command::Command};
-use super::swap_chain::SwapChain;
-use crate::game::{core::Core};
+use command::Command;
+use swap_chain::SwapChain;
+use crate::core::Core;
 use ash::vk;
+
 pub struct Renderer{
     pub swap_chain: SwapChain,
     is_frame_started: bool,
@@ -90,7 +92,7 @@ impl Renderer {
             return;
         }
         self.is_frame_started = false;
-        self.current_frame_index = (self.current_frame_index +1) % super::swap_chain::MAX_FRAMES_IN_FLIGHT as u32;
+        self.current_frame_index = (self.current_frame_index +1) % swap_chain::MAX_FRAMES_IN_FLIGHT as u32;
     }
     pub fn begin_render_pass(&mut self, command_buffer: vk::CommandBuffer) {
         assert!(

@@ -1,5 +1,5 @@
 use super::pipeline::{Pipeline, PipelineConfig};
-use crate::game::core::Core;
+use crate::core::Core;
 use crate::offset_of;
 use ash::vk;
 use nalgebra_glm as glm;

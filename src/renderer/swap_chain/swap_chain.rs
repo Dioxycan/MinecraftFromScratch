@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use super::MAX_FRAMES_IN_FLIGHT;
-use crate::game::core::Core;
+use crate::core::Core;
 use ash::extensions::khr;
 use ash::prelude::*;
 use ash::vk;
