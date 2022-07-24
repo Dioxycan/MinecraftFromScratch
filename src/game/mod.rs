@@ -16,7 +16,7 @@ use winit::{
     event_loop::{self, ControlFlow},
     platform::run_return::EventLoopExtRunReturn,
 };
-pub const STATIC_MOVE_SPEED: f32 = 500.0;
+pub const STATIC_MOVE_SPEED: f32 = 1000.0;
 use game_objects::key_event::{handle_key_event, key_handler};
 pub struct Game {
     core: Rc<Core>,
@@ -50,19 +50,19 @@ impl Game {
             //   {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
             Vertex {
                 position: glm::vec3(-0.5, -0.5, -0.5),
-                color: glm::vec3(0.9, 1.0, 0.9),
+                color: glm::vec3(0.9, 0.9, 0.9),
             },
             Vertex {
                 position: glm::vec3(-0.5, 0.5, 0.5),
-                color: glm::vec3(0.9, 1.0, 0.9),
+                color: glm::vec3(0.9, 0.9, 0.9),
             },
             Vertex {
                 position: glm::vec3(-0.5, -0.5, 0.5),
-                color: glm::vec3(0.9, 1.0, 0.9),
+                color: glm::vec3(0.9, 0.9, 0.9),
             },
             Vertex {
                 position: glm::vec3(-0.5, 0.5, -0.5),
-                color: glm::vec3(0.0, 1.0, 0.0),
+                color: glm::vec3(0.9, 0.9, 0.9),
             },
             // {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
             // {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
@@ -166,18 +166,8 @@ impl Game {
             },
         ];
         let indices = vec![
-            0, 1, 2,
-             0, 3, 1,
-              4, 5, 6,
-               4, 7, 5,
-                8, 9, 10,
-                 8, 11, 9,
-                  12, 13, 14,
-                   12, 15, 13,
-                    16, 17,18,
-                     16, 19, 17,
-                      20, 21, 22,
-                       20, 23, 21,
+            0, 1, 2, 0, 3, 1, 4, 5, 6, 4, 7, 5, 8, 9, 10, 8, 11, 9, 12, 13, 14, 12, 15, 13, 16, 17,
+            18, 16, 19, 17, 20, 21, 22, 20, 23, 21,
         ];
         let index_count = indices.len() as u32;
         let vertex_buffer_index = memory.create_buffer(
@@ -223,14 +213,13 @@ impl Game {
             delta_time: time::Duration::new(0, 0),
             time: time::Instant::now(),
             key_handler: key_handler {
-                position: glm::vec3(0.0, 0.0, -1.0),
+                position: glm::vec3(-5.0, -1.0, 2.0),
                 target: glm::vec3(0.0, 0.0, 0.0),
             },
             index_count,
         }
     }
-    pub fn reset_perspective(&mut self) {}
-    pub fn draw(&mut self) {
+    pub fn reset_perspective(&mut self) {
         self.camera.set_perspective_projection(
             50_f32.to_radians(),
             self.renderer.swap_chain.swap_chain_extent.width as f32
@@ -238,15 +227,18 @@ impl Game {
             0.1,
             1000.0,
         );
+    }
+    pub fn draw(&mut self) {
         self.camera.set_view_direction(
             &self.key_handler.position,
             &self.key_handler.target,
             &glm::vec3(0.0, 1.0, 0.0),
         );
+
         let push = PushConstant {
             proj_view: self.camera.projection * self.camera.view,
         };
-        println!("{:?}", push);
+
         let command_buffer = self.renderer.begin_frame();
         if command_buffer != vk::CommandBuffer::null() {
             self.renderer.begin_render_pass(command_buffer);
