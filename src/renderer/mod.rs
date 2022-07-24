@@ -114,7 +114,7 @@ impl Renderer {
             .clear_values(&[
                 vk::ClearValue {
                     color: vk::ClearColorValue {
-                        float32: [0.0, 0.0, 0.0, 1.0],
+                        float32: [0.060, 0.014, 0.700, 1.0],
                     },
                 },
                 vk::ClearValue {

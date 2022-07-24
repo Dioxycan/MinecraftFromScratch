@@ -16,6 +16,7 @@ pub struct Allocator {
     pub memory_flags: vk::MemoryPropertyFlags,
     pub list: List<Block>,
     pub host_data_ptr: Option<*mut c_void>,
+    pub alignment: vk::DeviceSize,
 }
 #[derive(Debug)]
 pub struct Block {
@@ -37,7 +38,12 @@ impl Allocator {
         core: Rc<Core>,
         allocation_size: vk::DeviceSize,
         memory_flags: vk::MemoryPropertyFlags,
+        alignment: vk::DeviceSize,
     ) -> Self {
+        let mut size = alignment*(allocation_size/alignment);
+        if size < allocation_size {
+            size += alignment;
+        }
         let memory_properties = unsafe {
             core.instance
                 .get_physical_device_memory_properties(core.physical_device)
@@ -49,48 +55,57 @@ impl Allocator {
             .find(|(i, memory_type)| {
                 memory_type.property_flags == memory_flags
                     && memory_properties.memory_heaps[memory_type.heap_index as usize].size / 4
-                        >= allocation_size
+                        >= size
             })
             .map(|(i, _)| i as u32)
             .unwrap();
-        let create_info = create_allocator_info(type_index, allocation_size);
+        let create_info = create_allocator_info(type_index, size);
         let handle = unsafe {
             core.logical_device
                 .allocate_memory(&create_info, None)
                 .expect("Failed to allocate memory")
         };
-        println!("{:?}", type_index);
         Self {
             core,
             handle,
-            size: allocation_size,
+            size: size,
             memory_type_index: type_index,
             memory_flags: memory_flags,
-            free_memory: allocation_size,
-            list: List::new(Block::new(0, allocation_size, None)),
+            free_memory: size,
+            list: List::new(Block::new(0, size, None)),
             host_data_ptr: None,
+            alignment,
         }
     }
-    pub fn allocate_memory(&mut self, buffer: &Buffer, buffer_index: usize) {
+    pub fn allocate_memory(&mut self, buffer: &mut Buffer, buffer_index: usize) {
         let node = self.find_block(buffer.memory_requirements);
 
         if let Some(node) = node {
             let mut mut_node = node.borrow_mut();
             let block = &mut mut_node.data;
-            unsafe {
-                self.core
-                    .logical_device
-                    .bind_buffer_memory(buffer.handle, self.handle, block.offset)
-                    .expect("Failed to bind buffer memory")
-            };
+
+            println!("Allocating memory for buffer {}", buffer.size);
             if block.size - buffer.size > 0 {
+                let mut size = self.alignment * (buffer.size/ self.alignment);
+                if size < buffer.size {
+                    size += self.alignment;
+                }
+                println!("{:?}", size);
                 let new_block = Block::new(
-                    block.offset + buffer.size + 1,
-                    block.size - buffer.size,
+                    size,
+                    block.size -size,
                     None,
                 );
-                block.size = buffer.size;
+                block.size = size;
                 block.buffer_index = Some(buffer_index);
+                buffer.offsets.push(block.offset);
+                unsafe {
+                    self.core
+                        .logical_device
+                        .bind_buffer_memory(buffer.handle, self.handle, block.offset)
+                        .expect("Failed to bind buffer memory")
+                };
+
                 let new_node = Node {
                     data: new_block,
                     next: mut_node.next.clone(),
@@ -99,6 +114,7 @@ impl Allocator {
             } else {
                 block.buffer_index = Some(buffer_index);
             }
+         
         } else {
             panic!("Failed to allocate memory");
         }
@@ -128,11 +144,9 @@ impl Allocator {
         });
     }
     pub fn find_block(&mut self, memory_requirements: vk::MemoryRequirements) -> Link<Block> {
-        println!("{:?}", memory_requirements);
         self.list.iter().find(|node| {
             let block = &node.borrow().data;
-            println!("{:?}", block.size);
-            block.size >= memory_requirements.size
+            block.buffer_index.is_none() &&block.size >= memory_requirements.size
         })
     }
     pub fn map_memory(&mut self) {
@@ -149,7 +163,6 @@ impl Allocator {
                 )
             }
         }
-        eprintln!("Can't map to a non-host visible memory");
     }
 }
 

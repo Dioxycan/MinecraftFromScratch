@@ -20,6 +20,7 @@ impl Buffer{
         let memory_requirements = unsafe {
             core.logical_device.get_buffer_memory_requirements(handle)
         };
+        println!("{:?}",memory_requirements);
         Self{
             core,
             handle,

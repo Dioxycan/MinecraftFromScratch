@@ -1,8 +1,10 @@
 pub mod camera;
+pub mod key_event;
 use crate::offset_of;
 use nalgebra_glm as glm;
 use ash::vk;
 use std::mem;
+pub (super) use super::STATIC_MOVE_SPEED;
 pub struct Vertex {
     pub position: glm::Vec3,
     pub color: glm::Vec3,

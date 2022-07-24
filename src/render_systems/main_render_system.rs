@@ -7,18 +7,17 @@ use std::mem;
 use std::rc::Rc;
 #[derive(Debug)]
 pub struct PushConstant {
-    pub view: glm::Mat4,
-    pub proj: glm::Mat4,
+    pub proj_view: glm::Mat4,
+
 }
 impl PushConstant {
-    pub fn new(view: glm::Mat4, proj: glm::Mat4) -> Self {
-        PushConstant { view, proj }
+    pub fn new(proj_view: glm::Mat4) -> Self {
+        PushConstant { proj_view}
     }
     pub fn as_u8(&self) -> Vec<u8> {
         unsafe { 
-            let mut view = self.view.as_slice().align_to::<u8>().1.to_owned();
-            view.append(&mut self.proj.as_slice().align_to::<u8>().1.to_owned());
-            view
+            let mut proj_view = self.proj_view.as_slice().align_to::<u8>().1.to_owned();
+            proj_view
         }
 
     }

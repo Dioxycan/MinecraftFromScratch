@@ -25,9 +25,10 @@ impl Memory {
         &mut self,
         size: vk::DeviceSize,
         memory_flags: vk::MemoryPropertyFlags,
+        alignment: vk::DeviceSize,
     ) {
-        let mut allocator = Allocator::new(self.core.clone(), size, memory_flags);
-        if memory_flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE){
+        let mut allocator = Allocator::new(self.core.clone(), size, memory_flags, alignment);
+        if memory_flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE) {
             allocator.map_memory();
         }
         self.allocators.push(allocator);
@@ -37,7 +38,7 @@ impl Memory {
         size: vk::DeviceSize,
         usage_flags: vk::BufferUsageFlags,
         memory_flags: vk::MemoryPropertyFlags,
-    )->usize {
+    ) -> usize {
         let buffer = Buffer::new(
             self.core.clone(),
             vk::BufferCreateInfo {
@@ -51,6 +52,7 @@ impl Memory {
         self.buffers.push(buffer);
         self.buffers.len() - 1
     }
+
     pub fn allocate_memory(&mut self, buffer_index: usize) {
         let allocator_index = self
             .find_suitable_allocator(
@@ -61,7 +63,8 @@ impl Memory {
                     .memory_type_bits,
             )
             .unwrap();
-        self.allocators[allocator_index].allocate_memory(&self.buffers[buffer_index], buffer_index);
+        self.allocators[allocator_index]
+            .allocate_memory(&mut self.buffers[buffer_index], buffer_index);
         self.buffers[buffer_index].allocator_index = Some(allocator_index);
     }
     fn find_suitable_allocator(
@@ -88,17 +91,19 @@ impl Memory {
         size: vk::DeviceSize,
         data: *const u8,
     ) {
-        if let Some(allocator_index) = self.buffers[buffer_index].allocator_index {
-            match self.buffers[buffer_index].memory_type {
+        let buffer = &self.buffers[buffer_index];
+        if let Some(allocator_index) = buffer.allocator_index {
+            match buffer.memory_type {
                 vk::MemoryPropertyFlags::HOST_VISIBLE => {
-                    match self.allocators[allocator_index].host_data_ptr{
-                        Some(host_data_ptr)=>{
-                            unsafe{
-                                std::ptr::copy_nonoverlapping(data,host_data_ptr as *mut u8,size as usize);
-                            }
-
+                    match self.allocators[allocator_index].host_data_ptr {
+                        Some(host_data_ptr) => unsafe {
+                            std::ptr::copy(
+                                data,
+                                host_data_ptr.offset(buffer.offsets[0] as isize) as *mut u8,
+                                size as usize,
+                            );
                         },
-                        None=>{
+                        None => {
                             eprintln!("Failed to find host data ptr");
                         }
                     }
