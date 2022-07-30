@@ -11,7 +11,7 @@ impl SwapChainSupportDetails {
     pub fn query_swap_chain_support(
         physical_device:&vk::PhysicalDevice,
         surface: &Surface,
-    ) -> SwapChainSupportDetails {
+    ) -> Self {
         unsafe {
             let capabilities = surface
                 .surface_loader

@@ -1,45 +1,122 @@
 pub mod allocators;
 mod buffers;
 mod image;
-use ash::vk;
-
-use crate::core::Core;
+use self::allocators::Block;
+use crate::{core::Core, utils::list::Link};
 use allocators::Allocator;
+use ash::vk;
 use buffers::Buffer;
-use std::rc::Rc;
+use image::Image;
+use std::ffi::c_void;
+use std::panic;
+use std::{rc::Rc, sync::Arc};
+#[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
+pub enum AllocationType {
+    Free,
+    Buffer,
+    Image,
+    ImageLinear,
+    ImageOptimal,
+}
+#[derive(Debug)]
+struct MemoryHeap {
+    size: vk::DeviceSize,
+    free_memory: vk::DeviceSize,
+    property_flags: vk::MemoryPropertyFlags,
+    memory_types: Vec<MemoryType>,
+}
+#[derive(Debug)]
+struct MemoryType {
+    property_flags: vk::MemoryPropertyFlags,
+    type_index: usize,
+}
+fn get_memory_heaps(core: &Core) -> Vec<MemoryHeap> {
+    let memory_properties = unsafe {
+        core.instance
+            .get_physical_device_memory_properties(core.physical_device)
+    };
+    let mut memory_heaps: Vec<MemoryHeap> = memory_properties.memory_heaps
+        [0..memory_properties.memory_heap_count as usize]
+        .iter()
+        .map(|heap| MemoryHeap {
+            size: heap.size,
+            free_memory: heap.size,
+            property_flags: vk::MemoryPropertyFlags::empty(),
+            memory_types: vec![],
+        })
+        .collect();
+    memory_properties.memory_types[0..memory_properties.memory_type_count as usize]
+        .iter()
+        .enumerate()
+        .for_each(|(i, memory_type)| {
+            let memory_heap = &mut memory_heaps[memory_type.heap_index as usize];
+            memory_heap.memory_types.push(MemoryType {
+                property_flags: memory_type.property_flags,
+                type_index: i,
+            });
+            memory_heap.property_flags |= memory_type.property_flags;
+        });
+    memory_heaps
+}
 
 pub struct Memory {
     core: Rc<Core>,
-    allocators: Vec<Allocator>,
+    pub allocators: Vec<Allocator>,
     pub buffers: Vec<Buffer>,
+    pub images: Vec<Image>,
+    memory_heaps: Vec<MemoryHeap>,
+    granularity: vk::DeviceSize,
 }
 impl Memory {
     pub fn new(core: Rc<Core>) -> Self {
         Self {
-            core,
+            memory_heaps: get_memory_heaps(&core),
             allocators: Vec::new(),
             buffers: Vec::new(),
+            images: Vec::new(),
+            granularity: unsafe {
+                core.instance
+                    .get_physical_device_properties(core.physical_device)
+                    .limits
+                    .buffer_image_granularity
+            },
+            core,
         }
     }
     pub fn create_allocator(
         &mut self,
         size: vk::DeviceSize,
-        memory_flags: vk::MemoryPropertyFlags,
+        memory_property_flags: vk::MemoryPropertyFlags,
         alignment: vk::DeviceSize,
     ) {
-        let mut allocator = Allocator::new(self.core.clone(), size, memory_flags, alignment);
-        if memory_flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE) {
-            allocator.map_memory();
+        let type_index = self.find_suitable_heap(size, memory_property_flags);
+        match type_index {
+            Some(type_index) => {
+                let mut allocator = Allocator::new(
+                    self.core.clone(),
+                    size,
+                    memory_property_flags,
+                    type_index as u32,
+                );
+                if memory_property_flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE) {
+                    allocator.map_memory();
+                }
+                self.allocators.push(allocator);
+            }
+            None => {
+                eprintln!("Failed to find suitable heap");
+                return;
+            }
         }
-        self.allocators.push(allocator);
     }
     pub fn create_buffer(
         &mut self,
         size: vk::DeviceSize,
+        allocation_type: AllocationType,
         usage_flags: vk::BufferUsageFlags,
         memory_flags: vk::MemoryPropertyFlags,
     ) -> usize {
-        let buffer = Buffer::new(
+        let mut buffer = Buffer::new(
             self.core.clone(),
             vk::BufferCreateInfo {
                 size,
@@ -47,25 +124,55 @@ impl Memory {
                 sharing_mode: vk::SharingMode::EXCLUSIVE,
                 ..Default::default()
             },
-            memory_flags,
+            memory_flags,            
         );
+        let (data, allocator_index, block_id,offset) = self.allocate_memory(
+            buffer.memory_requirements,
+            memory_flags,
+            allocation_type,
+            self.granularity,
+        );
+
+        buffer.offsets.push(offset);
+        buffer.data = data;
+        buffer.allocator_id = Some(allocator_index);
+        buffer.block_id = Some(block_id);
+        unsafe {
+            self.core
+                .logical_device
+                .bind_buffer_memory(
+                    buffer.handle,
+                    self.allocators[allocator_index].handle,
+                    offset,
+                )
+                .unwrap();
+        }
+      
         self.buffers.push(buffer);
         self.buffers.len() - 1
     }
 
-    pub fn allocate_memory(&mut self, buffer_index: usize) {
+    fn allocate_memory(
+        &mut self,
+        memory_requirements: vk::MemoryRequirements,
+        memory_type: vk::MemoryPropertyFlags,
+        allocation_type: AllocationType,
+        granuality: vk::DeviceSize,
+    ) -> (Option<*mut c_void>, usize, usize,u64) {
         let allocator_index = self
             .find_suitable_allocator(
-                self.buffers[buffer_index].memory_type,
-                self.buffers[buffer_index].size,
-                self.buffers[buffer_index]
-                    .memory_requirements
-                    .memory_type_bits,
+                memory_type,
+                memory_requirements.size,
+                memory_requirements.memory_type_bits,
             )
             .unwrap();
-        self.allocators[allocator_index]
-            .allocate_memory(&mut self.buffers[buffer_index], buffer_index);
-        self.buffers[buffer_index].allocator_index = Some(allocator_index);
+        let allocator = &mut self.allocators[allocator_index];
+        let (block_id,offset) = allocator.allocate_memory(memory_requirements, allocation_type, 0, granuality);
+        let data = match allocator.data {
+            Some(ref mut data) => Some(unsafe { data.offset(offset as _) }),
+            None => None,
+        };
+        (data, allocator_index, block_id,offset)
     }
     fn find_suitable_allocator(
         &mut self,
@@ -85,48 +192,114 @@ impl Memory {
     }
     pub fn copy_memory(
         &mut self,
-        command_buffer: vk::CommandBuffer,
+        command_buffer: Option<vk::CommandBuffer>,
         buffer_index: usize,
         offset: vk::DeviceSize,
         size: vk::DeviceSize,
         data: *const u8,
     ) {
-        let buffer = &self.buffers[buffer_index];
-        if let Some(allocator_index) = buffer.allocator_index {
-            match buffer.memory_type {
-                vk::MemoryPropertyFlags::HOST_VISIBLE => {
-                    match self.allocators[allocator_index].host_data_ptr {
-                        Some(host_data_ptr) => unsafe {
-                            std::ptr::copy(
-                                data,
-                                host_data_ptr.offset(buffer.offsets[0] as isize) as *mut u8,
-                                size as usize,
-                            );
-                        },
-                        None => {
-                            eprintln!("Failed to find host data ptr");
-                        }
-                    }
+        match self.buffers[buffer_index].memory_type {
+            vk::MemoryPropertyFlags::HOST_VISIBLE => match self.buffers[buffer_index].data {
+                Some(host_data_ptr) => unsafe {
+                    std::ptr::copy(
+                        data,
+                        host_data_ptr.offset(offset as isize) as *mut u8,
+                        size as usize,
+                    );
+                },
+                None => {
+                    eprintln!("Failed to find host data ptr");
                 }
-                vk::MemoryPropertyFlags::DEVICE_LOCAL => {}
-                _ => {}
+            },
+            vk::MemoryPropertyFlags::DEVICE_LOCAL => {
+                let staging_buffer_index = self.find_suitable_buffer(
+                    size,
+                    vk::BufferUsageFlags::TRANSFER_SRC,
+                    vk::MemoryPropertyFlags::HOST_VISIBLE,
+                );
+                match staging_buffer_index {
+                    Some(staging_buffer_index) => {
+                        let sub_memory =
+                            self.buffers[staging_buffer_index].allocate_sub_memory(size);
+                        match sub_memory {
+                            Some(sub_memory) => {
+                                let sub_memory = &sub_memory.borrow().data;
+                                self.copy_memory(None, buffer_index, sub_memory.offset, size, data);
+                                match command_buffer {
+                                    Some(command_buffer) => {
+                                        let copy_info = vk::BufferCopy {
+                                            src_offset: sub_memory.offset,
+                                            dst_offset: offset,
+                                            size,
+                                        };
+                                        let copy_infos = [copy_info];
+                                        unsafe {
+                                            self.core.logical_device.cmd_copy_buffer(
+                                                command_buffer,
+                                                self.buffers[buffer_index].handle,
+                                                self.buffers[staging_buffer_index].handle,
+                                                &copy_infos,
+                                            );
+                                            self.buffers[staging_buffer_index]
+                                                .free_sub_memory(sub_memory.id);
+                                        }
+                                    }
+                                    None => {
+                                        eprintln!("Failed to find command buffer");
+                                    }
+                                }
+                            }
+                            None => {}
+                        }
+                        panic!("Failed to find sub memory");
+                    }
+                    None => {
+                        eprintln!("Failed to find suitable staging buffer");
+                    }
+                };
             }
+            _ => {}
         }
     }
-    pub fn find_suitable_buffer(
+    fn find_suitable_buffer(
         &mut self,
         size: vk::DeviceSize,
         usage_flags: vk::BufferUsageFlags,
+        memory_flags: vk::MemoryPropertyFlags,
     ) -> Option<usize> {
         self.buffers
             .iter_mut()
             .enumerate()
             .find(|(index, buffer)| {
-                buffer.buffer_type == usage_flags
-                    && buffer.free_memory >= size
-                    && buffer.memory_type == vk::MemoryPropertyFlags::HOST_VISIBLE
+                buffer.size >= size
+                    && buffer.memory_type.contains(memory_flags)
+                    && buffer.buffer_usage.contains(usage_flags)
             })
             .map(|(index, buffer)| index)
+    }
+    fn find_suitable_heap(
+        &mut self,
+        size: vk::DeviceSize,
+        memory_property_flags: vk::MemoryPropertyFlags,
+    ) -> Option<usize> {
+        for (index, heap) in self.memory_heaps.iter_mut().enumerate() {
+            if heap.property_flags.contains(memory_property_flags) && heap.free_memory >= size {
+                heap.free_memory -= size;
+                return heap
+                    .memory_types
+                    .iter()
+                    .find(|memory_type| memory_type.property_flags.contains(memory_property_flags))
+                    .map(|memory_type| memory_type.type_index);
+            }
+        }
+        None
+    }
+    pub fn free_buffer(&mut self, buffer_index: usize) {
+        let buffer = &mut self.buffers[buffer_index];
+        let allocator = &mut self.allocators[buffer.allocator_id.unwrap()];
+        let offset = buffer.offsets.pop().unwrap();
+        allocator.free_memory(buffer.block_id.unwrap());
+        self.buffers.remove(buffer_index);
     }
 }
 

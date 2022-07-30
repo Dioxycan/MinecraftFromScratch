@@ -1,10 +1,13 @@
 pub mod camera;
 pub mod key_event;
+pub mod block;
 use crate::offset_of;
 use nalgebra_glm as glm;
 use ash::vk;
 use std::mem;
+use crate::render_systems::RenderSystem;
 pub (super) use super::STATIC_MOVE_SPEED;
+#[derive(Debug, Clone, Copy)]
 pub struct Vertex {
     pub position: glm::Vec3,
     pub color: glm::Vec3,
@@ -37,3 +40,12 @@ impl Vertex {
         ]
     }
 }
+
+pub trait GameObject{
+    fn new()->Self where Self: Sized;
+    fn bind(&self,command_buffer:& vk::CommandBuffer);
+    fn draw(&self);
+    fn update(&self);
+}
+
+

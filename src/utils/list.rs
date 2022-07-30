@@ -1,10 +1,12 @@
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
+#[derive(Debug)]
 pub struct Node<T> {
     pub data: T,
     pub next: Link<T>,
 }
+
 impl<T> Node<T> {
     pub fn new(data: T) -> Self {
         Self { data, next: None }

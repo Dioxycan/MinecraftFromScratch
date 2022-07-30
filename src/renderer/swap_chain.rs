@@ -1,11 +1,12 @@
 use std::rc::Rc;
-
-use super::MAX_FRAMES_IN_FLIGHT;
 use crate::core::Core;
 use ash::extensions::khr;
 use ash::prelude::*;
 use ash::vk;
 use std::ops::Drop;
+
+pub const MAX_FRAMES_IN_FLIGHT : usize = 2;
+
 pub struct SwapChain {
     core: Rc<Core>,
     pub swap_chain_loader: khr::Swapchain,
@@ -26,9 +27,9 @@ pub struct SwapChain {
     pub current_frame: usize,
 }
 impl SwapChain {
-    pub fn new(core: Rc<Core>) -> Self {
+    pub fn new(core: Rc<Core>,window_extent:&vk::Extent2D, old_swap_chain: Option<vk::SwapchainKHR>) -> Self {
         let swap_chain_loader = khr::Swapchain::new(&core.instance, &core.logical_device);
-        SwapChain {
+        let mut swap_chain = SwapChain {
             core,
             swap_chain_loader,
             swap_chain: vk::SwapchainKHR::null(),
@@ -46,15 +47,14 @@ impl SwapChain {
             inflight_fences: Vec::new(),
             image_in_flight: Vec::new(),
             current_frame: 0,
-        }
-    }
-    pub fn init(&mut self, window_extent:&vk::Extent2D, old_swap_chain: Option<vk::SwapchainKHR>) {
-        self.create_swap_chain(window_extent,old_swap_chain);
-        self.create_image_views();
-        self.create_render_pass();
-        self.create_depth_resources();
-        self.create_frame_buffer();
-        self.create_sync_objects();
+        };
+        swap_chain.create_swap_chain(window_extent,old_swap_chain);
+        swap_chain.create_image_views();
+        swap_chain.create_render_pass();
+        swap_chain.create_depth_resources();
+        swap_chain.create_frame_buffer();
+        swap_chain.create_sync_objects();
+        swap_chain
     }
     fn create_swap_chain(
         &mut self,
@@ -251,6 +251,7 @@ impl SwapChain {
                     .logical_device
                     .get_image_memory_requirements(image)
             };
+            println!("mem req: {:?}", mem_req);
             let mem_index = self.core.find_memory_type(
                 mem_req.memory_type_bits,
                 vk::MemoryPropertyFlags::DEVICE_LOCAL,

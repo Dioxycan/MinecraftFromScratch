@@ -1,12 +1,10 @@
-
 mod swap_chain;
-use std::rc::Rc;
 use crate::command::Command;
-use swap_chain::SwapChain;
 use crate::core::Core;
 use ash::vk;
-
-pub struct Renderer{
+use std::rc::Rc;
+use swap_chain::SwapChain;
+pub struct Renderer {
     pub swap_chain: SwapChain,
     is_frame_started: bool,
     core: Rc<Core>,
@@ -16,8 +14,7 @@ pub struct Renderer{
 }
 impl Renderer {
     pub fn new(core: Rc<Core>, window_extent: vk::Extent2D) -> Self {
-        let mut swap_chain = SwapChain::new(core.clone());
-        swap_chain.init(&window_extent,None);
+        let swap_chain = SwapChain::new(core.clone(), &window_extent, None);
         let command = Command::new(&core);
         Renderer {
             core,
@@ -26,17 +23,18 @@ impl Renderer {
             command,
             current_frame_index: 0,
             current_image_index: 0,
-
         }
     }
-    pub fn recreate_swap_chain(&mut self,window_extent: vk::Extent2D) {
-        unsafe{
+    pub fn recreate_swap_chain(&mut self, window_extent: vk::Extent2D) {
+        unsafe {
             self.core.logical_device.device_wait_idle().unwrap();
         }
-        let mut new = SwapChain::new(self.core.clone());
-        new.init(&window_extent,Some(self.swap_chain.swap_chain));
+        let new = SwapChain::new(
+            self.core.clone(),
+            &window_extent,
+            Some(self.swap_chain.swap_chain),
+        );
         self.swap_chain = new;
-      
     }
     pub fn get_render_pass(&self) -> &vk::RenderPass {
         self.swap_chain.get_render_pass()
@@ -48,7 +46,7 @@ impl Renderer {
         assert!(self.is_frame_started == false, "Frame already started");
         let command_buffer = self.get_current_command_buffer();
         match self.swap_chain.acquire_next_image() {
-            Ok((image_index,_is_ok)) => {
+            Ok((image_index, _is_ok)) => {
                 self.current_image_index = image_index;
                 self.is_frame_started = true;
                 let begin_info = vk::CommandBufferBeginInfo::default();
@@ -85,14 +83,19 @@ impl Renderer {
                 .end_command_buffer(command_buffer)
                 .expect("Failed to end command buffer");
         }
-        let result = self.swap_chain.submit_command_buffer(&command_buffer,&self.current_image_index);
-        if result == Err(ash::vk::Result::ERROR_OUT_OF_DATE_KHR) || result == Err(ash::vk::Result::SUBOPTIMAL_KHR){
+        let result = self
+            .swap_chain
+            .submit_command_buffer(&command_buffer, &self.current_image_index);
+        if result == Err(ash::vk::Result::ERROR_OUT_OF_DATE_KHR)
+            || result == Err(ash::vk::Result::SUBOPTIMAL_KHR)
+        {
             println!("Failed to submit command buffer: {:?}", result);
             self.is_frame_started = false;
             return;
         }
         self.is_frame_started = false;
-        self.current_frame_index = (self.current_frame_index +1) % swap_chain::MAX_FRAMES_IN_FLIGHT as u32;
+        self.current_frame_index =
+            (self.current_frame_index + 1) % swap_chain::MAX_FRAMES_IN_FLIGHT as u32;
     }
     pub fn begin_render_pass(&mut self, command_buffer: vk::CommandBuffer) {
         assert!(
@@ -167,11 +170,15 @@ impl Renderer {
     }
 }
 
-impl Drop for Renderer{
+impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
-        self.core.logical_device.free_command_buffers(self.command.command_pool, &self.command.command_buffers);
-        self.core.logical_device.destroy_command_pool(self.command.command_pool, None);
+            self.core
+                .logical_device
+                .free_command_buffers(self.command.command_pool, &self.command.command_buffers);
+            self.core
+                .logical_device
+                .destroy_command_pool(self.command.command_pool, None);
         }
     }
 }

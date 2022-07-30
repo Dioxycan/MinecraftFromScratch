@@ -1,5 +1,5 @@
-mod game_objects;
-use self::game_objects::{camera::Camera, Vertex};
+pub mod game_objects;
+use self::game_objects::{camera::Camera, GameObject, Vertex};
 use crate::core::Core;
 use crate::memory::Memory;
 use crate::render_systems::main_render_system::PushConstant;
@@ -17,7 +17,10 @@ use winit::{
     platform::run_return::EventLoopExtRunReturn,
 };
 pub const STATIC_MOVE_SPEED: f32 = 1000.0;
+use crate::memory::AllocationType;
+use crate::render_systems::RenderSystem;
 use game_objects::key_event::{handle_key_event, key_handler};
+
 pub struct Game {
     core: Rc<Core>,
     pub window: Window,
@@ -29,6 +32,7 @@ pub struct Game {
     pub time: time::Instant,
     key_handler: key_handler,
     index_count: u32,
+    game_objects: Vec<Box<dyn GameObject>>,
 }
 impl Game {
     pub fn new(event_loop: &event_loop::EventLoop<()>) -> Self {
@@ -36,166 +40,55 @@ impl Game {
         let core = Rc::new(Core::new(&mut window));
         let renderer = Renderer::new(core.clone(), window.get_window_extent());
         let mut memory = Memory::new(core.clone());
-        let mut render_system = MainRenderSystem::new(core.clone());
-        render_system.init(
-            renderer.get_render_pass(),
+        let render_system = MainRenderSystem::new(
+            core.clone(),
+            &renderer.get_render_pass(),
             &Vertex::get_attribute_descriptions(),
             &vec![Vertex::get_binding_description()],
         );
         // create a cube
+
         let vertices = vec![
-            //         {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-            //   {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-            //   {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-            //   {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
-            Vertex {
-                position: glm::vec3(-0.5, -0.5, -0.5),
-                color: glm::vec3(0.9, 0.9, 0.9),
-            },
-            Vertex {
-                position: glm::vec3(-0.5, 0.5, 0.5),
-                color: glm::vec3(0.9, 0.9, 0.9),
-            },
-            Vertex {
-                position: glm::vec3(-0.5, -0.5, 0.5),
-                color: glm::vec3(0.9, 0.9, 0.9),
-            },
-            Vertex {
-                position: glm::vec3(-0.5, 0.5, -0.5),
-                color: glm::vec3(0.9, 0.9, 0.9),
-            },
-            // {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-            // {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-            // {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-            // {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
-            Vertex {
-                position: glm::vec3(0.5, -0.5, -0.5),
-                color: glm::vec3(0.8, 0.8, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, 0.5, 0.5),
-                color: glm::vec3(0.8, 0.8, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, -0.5, 0.5),
-                color: glm::vec3(0.8, 0.8, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, 0.5, -0.5),
-                color: glm::vec3(0.8, 0.8, 0.1),
-            },
-            //         {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-            //   {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-            //   {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-            //   {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-            Vertex {
-                position: glm::vec3(-0.5, -0.5, -0.5),
-                color: glm::vec3(0.9, 0.6, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, -0.5, 0.5),
-                color: glm::vec3(0.9, 0.6, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(-0.5, -0.5, 0.5),
-                color: glm::vec3(0.9, 0.6, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, -0.5, -0.5),
-                color: glm::vec3(0.9, 0.6, 0.1),
-            },
-            //         {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-            //   {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-            //   {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-            //   {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-            Vertex {
-                position: glm::vec3(-0.5, 0.5, -0.5),
-                color: glm::vec3(0.8, 0.1, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, 0.5, 0.5),
-                color: glm::vec3(0.8, 0.1, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(-0.5, 0.5, 0.5),
-                color: glm::vec3(0.8, 0.1, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, 0.5, -0.5),
-                color: glm::vec3(0.8, 0.1, 0.1),
-            },
-            // {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-            // {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-            // {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-            // {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-            Vertex {
-                position: glm::vec3(-0.5, -0.5, 0.5),
-                color: glm::vec3(0.1, 0.1, 0.8),
-            },
-            Vertex {
-                position: glm::vec3(0.5, 0.5, 0.5),
-                color: glm::vec3(0.1, 0.1, 0.8),
-            },
-            Vertex {
-                position: glm::vec3(-0.5, 0.5, 0.5),
-                color: glm::vec3(0.1, 0.1, 0.8),
-            },
-            Vertex {
-                position: glm::vec3(0.5, -0.5, 0.5),
-                color: glm::vec3(0.1, 0.1, 0.8),
-            },
-            // {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-            // {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-            // {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-            // {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-            Vertex {
-                position: glm::vec3(-0.5, -0.5, -0.5),
-                color: glm::vec3(0.1, 0.8, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, 0.5, -0.5),
-                color: glm::vec3(0.1, 0.8, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(-0.5, 0.5, -0.5),
-                color: glm::vec3(0.1, 0.8, 0.1),
-            },
-            Vertex {
-                position: glm::vec3(0.5, -0.5, -0.5),
-                color: glm::vec3(0.1, 0.8, 0.1),
-            },
+            Vertex::new(glm::vec3(-0.5, -0.5, -0.5), glm::vec3(1.0, 0.0, 0.0)),
+            Vertex::new(glm::vec3(-0.5, 0.5, 0.5), glm::vec3(0.0, 1.0, 0.0)),
+            Vertex::new(glm::vec3(-0.5, -0.5, 0.5), glm::vec3(0.0, 0.0, 1.0)),
+            Vertex::new(glm::vec3(-0.5, 0.5, -0.5), glm::vec3(1.0, 1.0, 1.0)),
+            Vertex::new(glm::vec3(0.5, -0.5, -0.5), glm::vec3(1.0, 0.0, 0.0)),
+            Vertex::new(glm::vec3(0.5, 0.5, 0.5), glm::vec3(0.0, 1.0, 0.0)),
+            Vertex::new(glm::vec3(0.5, -0.5, 0.5), glm::vec3(0.0, 0.0, 1.0)),
+            Vertex::new(glm::vec3(0.5, 0.5, -0.5), glm::vec3(1.0, 1.0, 1.0)),
         ];
         let indices = vec![
-            0, 1, 2, 0, 3, 1, 4, 5, 6, 4, 7, 5, 8, 9, 10, 8, 11, 9, 12, 13, 14, 12, 15, 13, 16, 17,
-            18, 16, 19, 17, 20, 21, 22, 20, 23, 21,
+            0, 1, 2, 0, 3, 1, 4, 5, 6, 4, 7, 5, 0, 6, 2, 0, 4, 6, 3, 5, 1, 3, 7, 5, 2, 5, 1, 2, 6,
+            5, 0, 7, 3, 0, 4, 7,
         ];
         let index_count = indices.len() as u32;
-        let vertex_buffer_index = memory.create_buffer(
-            vertices.len() as u64 * std::mem::size_of::<Vertex>() as u64,
-            vk::BufferUsageFlags::VERTEX_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE,
-        );
-        let index_buffer_index = memory.create_buffer(
-            (indices.len() * mem::size_of::<u32>()) as u64,
-            vk::BufferUsageFlags::INDEX_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE,
-        );
         memory.create_allocator(
             10000,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             256,
         );
-        memory.allocate_memory(vertex_buffer_index);
-        memory.allocate_memory(index_buffer_index);
+        let vertex_buffer_index = memory.create_buffer(
+            vertices.len() as u64 * std::mem::size_of::<Vertex>() as u64,
+            AllocationType::Buffer,
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE,
+        );
+        let index_buffer_index = memory.create_buffer(
+            (indices.len() * mem::size_of::<u32>()) as u64,
+            AllocationType::Buffer,
+            vk::BufferUsageFlags::INDEX_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE,
+        );
         memory.copy_memory(
-            renderer.command.command_buffers[0],
+            None,
             vertex_buffer_index,
             0,
             (vertices.len() * mem::size_of::<Vertex>()) as u64,
             vertices.as_ptr() as *const u8,
         );
         memory.copy_memory(
-            renderer.command.command_buffers[0],
+            None,
             index_buffer_index,
             0,
             (indices.len() * mem::size_of::<u32>()) as u64,
@@ -217,6 +110,7 @@ impl Game {
                 target: glm::vec3(0.0, 0.0, 0.0),
             },
             index_count,
+            game_objects: vec![],
         }
     }
     pub fn reset_perspective(&mut self) {
@@ -242,7 +136,13 @@ impl Game {
         let command_buffer = self.renderer.begin_frame();
         if command_buffer != vk::CommandBuffer::null() {
             self.renderer.begin_render_pass(command_buffer);
-            self.render_system.bind(command_buffer, push);
+
+            for game_object in &mut self.game_objects {
+                game_object.bind(&command_buffer);
+                game_object.draw();
+                game_object.update();
+            }
+            self.render_system.bind(&command_buffer, push);
             unsafe {
                 self.core.logical_device.cmd_bind_vertex_buffers(
                     command_buffer,
@@ -264,9 +164,7 @@ impl Game {
                     0,
                     0,
                 );
-                // self.core
-                //     .logical_device
-                //     .cmd_draw(command_buffer, 3, 1, 0, 0);
+                
             }
             self.renderer.end_render_pass(command_buffer);
             self.renderer.end_frame();
